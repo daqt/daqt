@@ -1,9 +1,11 @@
 #include "src/MainWindow.hpp"
 #include "ui_MainWindow.h"
 
+#include <QDir>
 #include <QSignalMapper>
 
 #include "src/dialogs/NewConnection.hpp"
+#include "src/SavedDatabases.hpp"
 
 MainWindow::MainWindow(QWidget* parent) :
 	QMainWindow(parent),
@@ -20,6 +22,8 @@ MainWindow::MainWindow(QWidget* parent) :
 	mapper->setMapping(ui->actionNewConnection, DIALOG_NEWCONNECTION);
 
 	connect(mapper, SIGNAL(mapped(int)), this, SLOT(showDialog(int)));
+
+	QMap<QString, QMap<QString, QString>> databases = SavedDatabases::getDatabases();
 }
 
 void MainWindow::showDialog(int dialog)

@@ -19,11 +19,14 @@ public:
 
 private:
 	Ui::NewConnection* ui;
+	void tryHost();
 
 public slots:
-	void tryHost();
-	void resetHost(QString); //TODO: Give a better name
+	//TODO: Give better names
+	void resetHost(QString);
 	void tryDatabase();
+	void tryName();
+	void resetName(QString);
 };
 
 #endif // NEWCONNECTION_HPP

@@ -36,7 +36,7 @@
    <property name="geometry">
     <rect>
      <x>90</x>
-     <y>10</y>
+     <y>50</y>
      <width>381</width>
      <height>32</height>
     </rect>
@@ -49,7 +49,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>20</y>
+     <y>60</y>
      <width>71</width>
      <height>18</height>
     </rect>
@@ -62,7 +62,7 @@
    <property name="geometry">
     <rect>
      <x>90</x>
-     <y>50</y>
+     <y>90</y>
      <width>131</width>
      <height>32</height>
     </rect>
@@ -72,6 +72,9 @@
    </property>
    <property name="text">
     <string>3306</string>
+   </property>
+   <property name="maxLength">
+    <number>5</number>
    </property>
    <property name="cursorPosition">
     <number>4</number>
@@ -87,7 +90,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>60</y>
+     <y>100</y>
      <width>71</width>
      <height>18</height>
     </rect>
@@ -113,7 +116,7 @@
    <property name="geometry">
     <rect>
      <x>250</x>
-     <y>60</y>
+     <y>100</y>
      <width>41</width>
      <height>18</height>
     </rect>
@@ -126,7 +129,7 @@
    <property name="geometry">
     <rect>
      <x>290</x>
-     <y>50</y>
+     <y>90</y>
      <width>181</width>
      <height>32</height>
     </rect>
@@ -141,7 +144,7 @@
    <property name="geometry">
     <rect>
      <x>90</x>
-     <y>90</y>
+     <y>130</y>
      <width>381</width>
      <height>32</height>
     </rect>
@@ -157,7 +160,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>100</y>
+     <y>140</y>
      <width>71</width>
      <height>18</height>
     </rect>
@@ -170,7 +173,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>140</y>
+     <y>180</y>
      <width>71</width>
      <height>18</height>
     </rect>
@@ -183,8 +186,8 @@
    <property name="geometry">
     <rect>
      <x>90</x>
-     <y>130</y>
-     <width>381</width>
+     <y>170</y>
+     <width>251</width>
      <height>32</height>
     </rect>
    </property>
@@ -205,9 +208,9 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>170</y>
+     <y>210</y>
      <width>461</width>
-     <height>101</height>
+     <height>61</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -224,15 +227,68 @@ p, li { white-space: pre-wrap; }
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; color:#ff0000;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
+  <widget class="QCheckBox" name="checkPassword">
+   <property name="geometry">
+    <rect>
+     <x>350</x>
+     <y>178</y>
+     <width>121</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Store password</string>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QLabel" name="labelConnectionName">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>20</y>
+     <width>71</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Name:</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="editName">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>10</y>
+     <width>381</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="inputMethodHints">
+    <set>Qt::ImhNone</set>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="maxLength">
+    <number>64</number>
+   </property>
+   <property name="placeholderText">
+    <string>New Connection</string>
+   </property>
+  </widget>
  </widget>
  <tabstops>
+  <tabstop>editName</tabstop>
   <tabstop>editHostname</tabstop>
   <tabstop>editPort</tabstop>
   <tabstop>editUsername</tabstop>
   <tabstop>editPassword</tabstop>
   <tabstop>comboType</tabstop>
-  <tabstop>buttonConnect</tabstop>
+  <tabstop>checkPassword</tabstop>
   <tabstop>buttonCancel</tabstop>
+  <tabstop>buttonConnect</tabstop>
   <tabstop>textError</tabstop>
  </tabstops>
  <resources/>

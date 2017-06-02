@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui network sql
+QT       += core gui network sql concurrent
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -25,10 +25,14 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += src/Main.cpp\
         src/MainWindow.cpp \
-    src/dialogs/NewConnection.cpp
+    src/dialogs/NewConnection.cpp \
+    src/SavedDatabases.cpp \
+    src/Utils.cpp
 
 HEADERS  += src/MainWindow.hpp \
-    src/dialogs/NewConnection.hpp
+    src/dialogs/NewConnection.hpp \
+    src/SavedDatabases.hpp \
+    src/Utils.hpp
 
 FORMS    += ui/forms/MainWindow.ui \
     ui/dialogs/NewConnection.ui
