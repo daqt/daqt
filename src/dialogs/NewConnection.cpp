@@ -6,6 +6,7 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 
+#include "src/MainWindow.hpp"
 #include "src/SavedDatabases.hpp"
 #include "src/Utils.hpp"
 
@@ -23,6 +24,8 @@ NewConnection::NewConnection(QWidget* parent) :
 
 	connect(ui->editName, SIGNAL(editingFinished()), this, SLOT(tryName()));
 	connect(ui->editName, SIGNAL(textChanged(QString)), this, SLOT(resetName(QString)));
+
+	connect(this, SIGNAL(finished(int)), (MainWindow*)parent, SLOT(loadDatabases(int)));
 }
 
 void NewConnection::tryHost()
@@ -79,7 +82,7 @@ void NewConnection::tryDatabase()
 		db = QSqlDatabase();
 
 		QMap<QString, QString> map;
-
+		map.insert("type", ui->comboType->currentText());
 		map.insert("hostname", ui->editHostname->text());
 		map.insert("port", ui->editPort->text());
 		map.insert("username", ui->editUsername->text());

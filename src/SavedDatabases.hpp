@@ -13,6 +13,7 @@ public:
 	static bool addDatabase(QString name, QMap<QString, QString> data);
 
 	static QMap<QString, QMap<QString, QString>> getDatabases();
+	static QMap<QString, QString> getDatabase(QString name);
 };
 
 #endif // SAVEDDATABASES_HPP

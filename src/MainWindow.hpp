@@ -2,6 +2,7 @@
 #define MAINWINDOW_HPP
 
 #include <QMainWindow>
+#include <QModelIndex>
 
 namespace Ui {
 	class MainWindow;
@@ -20,6 +21,10 @@ private:
 
 public slots:
 	void showDialog(int dialog);
+	void openDatabase(QModelIndex index);
+	void closeTab(int tab);
+
+	void loadDatabases(int);
 };
 
 #endif // MAINWINDOW_HPP

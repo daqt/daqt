@@ -43,6 +43,8 @@ bool SavedDatabases::addDatabase(QString name, QMap<QString, QString> data)
 		return SavedDatabases::addDatabase(name, data);
 	}
 
+	data.insert("name", name);
+
 	QFile file(SavedDatabases::getPath() + QDir::separator() + name + QDir::separator() + "db.config");
 
 	if (file.open(QIODevice::WriteOnly))
@@ -81,35 +83,42 @@ QMap<QString, QMap<QString, QString>> SavedDatabases::getDatabases()
 		if (dir == "." || dir == ".." || !QDir().exists(SavedDatabases::getPath() + QDir::separator() + dir))
 			continue;
 
-		QMap<QString, QString> data;
-
-		dir = SavedDatabases::getPath() + QDir::separator() + dir;
-
-		QFile file(dir + QDir::separator() + "db.config");
-
-		if (file.open(QIODevice::ReadOnly))
-		{
-			QTextStream stream(&file);
-
-			while (!stream.atEnd())
-			{
-				QString str = stream.readLine();
-
-				int i = QString(str.split(".")[1]).toInt();
-
-				QString result;
-
-				for (int c = 0; c < QString(str.split(".")[0]).length(); c++)
-					result += QChar(str.toUtf8()[c] ^ i);
-
-				data.insert(result.split(": ")[0], result.split(": ")[1]);
-			}
-
-			file.close();
-		}
+		QMap<QString, QString> data = SavedDatabases::getDatabase(dir);
 
 		databases.insert(it.i->t(), data);
 	}
 
 	return databases;
+}
+
+QMap<QString, QString> SavedDatabases::getDatabase(QString name)
+{
+	name = SavedDatabases::getPath() + QDir::separator() + name;
+
+	QFile file(name + QDir::separator() + "db.config");
+
+	QMap<QString, QString> data;
+
+	if (file.open(QIODevice::ReadOnly))
+	{
+		QTextStream stream(&file);
+
+		while (!stream.atEnd())
+		{
+			QString str = stream.readLine();
+
+			int i = QString(str.split(".")[1]).toInt();
+
+			QString result;
+
+			for (int c = 0; c < QString(str.split(".")[0]).length(); c++)
+				result += QChar(str.toUtf8()[c] ^ i);
+
+			data.insert(result.split(": ")[0], result.split(": ")[1]);
+		}
+
+		file.close();
+	}
+
+	return data;
 }

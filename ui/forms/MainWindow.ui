@@ -23,41 +23,79 @@
    <locale language="English" country="UnitedStates"/>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <widget class="QScrollArea" name="scrollDatabases">
+   <widget class="QTabWidget" name="tabWidget">
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>10</y>
+      <y>0</y>
       <width>701</width>
-      <height>391</height>
+      <height>441</height>
      </rect>
     </property>
-    <property name="widgetResizable">
+    <property name="currentIndex">
+     <number>0</number>
+    </property>
+    <property name="tabsClosable">
      <bool>true</bool>
     </property>
-    <widget class="QWidget" name="scrollDatabasesWidgetContents">
-     <property name="geometry">
-      <rect>
-       <x>0</x>
-       <y>0</y>
-       <width>697</width>
-       <height>387</height>
-      </rect>
-     </property>
+    <widget class="QWidget" name="tab">
+     <attribute name="title">
+      <string>Connections</string>
+     </attribute>
+     <widget class="QTableView" name="tableDatabases">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>10</y>
+        <width>671</width>
+        <height>341</height>
+       </rect>
+      </property>
+      <property name="editTriggers">
+       <set>QAbstractItemView::NoEditTriggers</set>
+      </property>
+      <property name="dragEnabled">
+       <bool>true</bool>
+      </property>
+      <property name="dragDropOverwriteMode">
+       <bool>false</bool>
+      </property>
+      <property name="dragDropMode">
+       <enum>QAbstractItemView::InternalMove</enum>
+      </property>
+      <property name="alternatingRowColors">
+       <bool>true</bool>
+      </property>
+      <property name="selectionMode">
+       <enum>QAbstractItemView::SingleSelection</enum>
+      </property>
+      <property name="selectionBehavior">
+       <enum>QAbstractItemView::SelectRows</enum>
+      </property>
+      <property name="gridStyle">
+       <enum>Qt::SolidLine</enum>
+      </property>
+      <property name="sortingEnabled">
+       <bool>true</bool>
+      </property>
+      <attribute name="verticalHeaderVisible">
+       <bool>false</bool>
+      </attribute>
+     </widget>
+     <widget class="QPushButton" name="buttonNewConnection">
+      <property name="geometry">
+       <rect>
+        <x>560</x>
+        <y>360</y>
+        <width>121</width>
+        <height>34</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>New Connection</string>
+      </property>
+     </widget>
     </widget>
-   </widget>
-   <widget class="QPushButton" name="buttonNewConnection">
-    <property name="geometry">
-     <rect>
-      <x>590</x>
-      <y>410</y>
-      <width>121</width>
-      <height>34</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>New Connection</string>
-    </property>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
