@@ -105,7 +105,6 @@ void MainWindow::loadDatabases(int)
 	}
 
 	ui->tableConnections->setModel(model);
-	ui->tableConnections->resizeRowsToContents();
 	ui->tableConnections->resizeColumnsToContents();
 	ui->tableConnections->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 }
