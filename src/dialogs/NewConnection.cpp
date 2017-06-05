@@ -7,7 +7,7 @@
 #include <QSqlError>
 
 #include "src/MainWindow.hpp"
-#include "src/SavedDatabases.hpp"
+#include "src/SavedConnections.hpp"
 #include "src/Utils.hpp"
 
 NewConnection::NewConnection(QWidget* parent) :
@@ -91,9 +91,9 @@ void NewConnection::tryDatabase()
 			map.insert("password", ui->editPassword->text()); //TODO: do something for safety
 
 		if (ui->editName->text().length() == 0)
-			SavedDatabases::addDatabase(ui->editName->placeholderText(), map);
+			SavedConnections::addConnection(ui->editName->placeholderText(), map);
 		else
-			SavedDatabases::addDatabase(ui->editName->text(), map);
+			SavedConnections::addConnection(ui->editName->text(), map);
 
 		this->close();
 	}

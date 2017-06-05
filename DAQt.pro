@@ -26,15 +26,15 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += src/Main.cpp\
         src/MainWindow.cpp \
     src/dialogs/NewConnection.cpp \
-    src/SavedDatabases.cpp \
     src/Utils.cpp \
-    src/widgets/DatabaseTab.cpp
+    src/widgets/DatabaseTab.cpp \
+    src/SavedConnections.cpp
 
 HEADERS  += src/MainWindow.hpp \
     src/dialogs/NewConnection.hpp \
-    src/SavedDatabases.hpp \
     src/Utils.hpp \
-    src/widgets/DatabaseTab.hpp
+    src/widgets/DatabaseTab.hpp \
+    src/SavedConnections.hpp
 
 FORMS    += ui/forms/MainWindow.ui \
     ui/dialogs/NewConnection.ui \

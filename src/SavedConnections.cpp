@@ -1,4 +1,4 @@
-#include "SavedDatabases.hpp"
+#include "SavedConnections.hpp"
 
 #include <QDir>
 #include <QFile>
@@ -6,15 +6,15 @@
 #include <QStringBuilder>
 #include <QTextStream>
 
-QString SavedDatabases::getPath()
+QString SavedConnections::getPath()
 {
 #if defined(Q_OS_LINUX)
 	QString config = qgetenv("XDG_CONFIG_DIRS").constData();
 
 	if (config.isEmpty())
-		return QDir::homePath() + "/.config/DAQt/databases";
+		return QDir::homePath() + "/.config/DAQt/connections";
 
-	return config + "/DAQt/databases";
+	return config + "/DAQt/connections";
 #elif defined(Q_OS_MAC)
 	//TODO: Mac config
 #elif defined(Q_OS_WIN32)
@@ -22,10 +22,10 @@ QString SavedDatabases::getPath()
 #endif
 }
 
-bool SavedDatabases::addDatabase(QString name, QMap<QString, QString> data)
+bool SavedConnections::addConnection(QString name, QMap<QString, QString> data)
 {
-	if (!QDir(SavedDatabases::getPath() + QDir::separator() + name).exists())
-		QDir().mkpath(SavedDatabases::getPath() + QDir::separator() + name);
+	if (!QDir(SavedConnections::getPath() + QDir::separator() + name).exists())
+		QDir().mkpath(SavedConnections::getPath() + QDir::separator() + name);
 	else
 	{
 		QRegularExpression reg(".*\\ \\([0-9]\\)$");
@@ -40,12 +40,12 @@ bool SavedDatabases::addDatabase(QString name, QMap<QString, QString> data)
 		else
 			name += " (1)";
 
-		return SavedDatabases::addDatabase(name, data);
+		return SavedConnections::addConnection(name, data);
 	}
 
 	data.insert("name", name);
 
-	QFile file(SavedDatabases::getPath() + QDir::separator() + name + QDir::separator() + "db.config");
+	QFile file(SavedConnections::getPath() + QDir::separator() + name + QDir::separator() + "con.fig");
 
 	if (file.open(QIODevice::WriteOnly))
 	{
@@ -70,9 +70,9 @@ bool SavedDatabases::addDatabase(QString name, QMap<QString, QString> data)
 	return true;
 }
 
-QMap<QString, QMap<QString, QString>> SavedDatabases::getDatabases()
+QMap<QString, QMap<QString, QString>> SavedConnections::getConnections()
 {
-	QStringList list = QDir(SavedDatabases::getPath()).entryList();
+	QStringList list = QDir(SavedConnections::getPath()).entryList();
 
 	QMap<QString, QMap<QString, QString>> databases;
 
@@ -80,10 +80,10 @@ QMap<QString, QMap<QString, QString>> SavedDatabases::getDatabases()
 	{
 		QString dir = it.i->t();
 
-		if (dir == "." || dir == ".." || !QDir().exists(SavedDatabases::getPath() + QDir::separator() + dir))
+		if (dir == "." || dir == ".." || !QDir().exists(SavedConnections::getPath() + QDir::separator() + dir))
 			continue;
 
-		QMap<QString, QString> data = SavedDatabases::getDatabase(dir);
+		QMap<QString, QString> data = SavedConnections::getConnection(dir);
 
 		databases.insert(it.i->t(), data);
 	}
@@ -91,11 +91,11 @@ QMap<QString, QMap<QString, QString>> SavedDatabases::getDatabases()
 	return databases;
 }
 
-QMap<QString, QString> SavedDatabases::getDatabase(QString name)
+QMap<QString, QString> SavedConnections::getConnection(QString name)
 {
-	name = SavedDatabases::getPath() + QDir::separator() + name;
+	name = SavedConnections::getPath() + QDir::separator() + name;
 
-	QFile file(name + QDir::separator() + "db.config");
+	QFile file(name + QDir::separator() + "con.fig");
 
 	QMap<QString, QString> data;
 

@@ -7,7 +7,7 @@
 
 #include "src/dialogs/NewConnection.hpp"
 #include "src/widgets/DatabaseTab.hpp"
-#include "src/SavedDatabases.hpp"
+#include "src/SavedConnections.hpp"
 
 MainWindow::MainWindow(QWidget* parent) :
 	QMainWindow(parent),
@@ -57,7 +57,7 @@ void MainWindow::openDatabase(QModelIndex index)
 
 	ui->tabWidget->setCurrentIndex(ui->tabWidget->addTab(newTab, name));
 
-	newTab->setDatabaseData(SavedDatabases::getDatabase(name));
+	newTab->setDatabaseData(SavedConnections::getConnection(name));
 	newTab->loadDatabases();
 }
 
@@ -69,7 +69,7 @@ void MainWindow::closeTab(int tab)
 
 void MainWindow::loadDatabases(int)
 {
-	QMap<QString, QMap<QString, QString>> databases = SavedDatabases::getDatabases();
+	QMap<QString, QMap<QString, QString>> databases = SavedConnections::getConnections();
 
 	QStandardItemModel* model = new QStandardItemModel(this);
 
