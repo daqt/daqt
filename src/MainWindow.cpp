@@ -6,7 +6,7 @@
 #include <QStandardItemModel>
 
 #include "src/dialogs/NewConnection.hpp"
-#include "src/widgets/DatabaseTab.hpp"
+#include "src/widgets/ConnectionTab.hpp"
 #include "src/SavedConnections.hpp"
 
 MainWindow::MainWindow(QWidget* parent) :
@@ -27,7 +27,9 @@ MainWindow::MainWindow(QWidget* parent) :
 
 	loadDatabases(0);
 
-	connect(ui->tableDatabases, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(openDatabase(QModelIndex)));
+	connect(ui->tableConnections, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(openConnection(QModelIndex)));
+
+	connect(ui->tableConnections, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(tableContext(QPoint)));
 
 	ui->tabWidget->tabBar()->tabButton(0, QTabBar::RightSide)->resize(0, 0);
 
@@ -43,21 +45,31 @@ void MainWindow::showDialog(int dialog)
 	case DIALOG_NEWCONNECTION:
 		qDialog = new NewConnection(this);
 		break;
+	case DIALOG_EDITCONNECTION:
+		if (!ui->tableConnections->selectionModel()->hasSelection())
+			return;
+
+		qDialog = new NewConnection(this);
+		qDialog->setWindowTitle("Edit connection");
+
+		QString selected = ui->tableConnections->selectionModel()->selectedRows()[0].data().toString();
+		((NewConnection*)qDialog)->setValues(SavedConnections::getConnection(selected));
+		break;
 	}
 
 	qDialog->setModal(true);
 	qDialog->show();
 }
 
-void MainWindow::openDatabase(QModelIndex index)
+void MainWindow::openConnection(QModelIndex index)
 {
 	QString name = index.sibling(index.row(), 0).data().toString();
 
-	DatabaseTab* newTab = new DatabaseTab(ui->tabWidget);
+	ConnectionTab* newTab = new ConnectionTab(ui->tabWidget);
 
 	ui->tabWidget->setCurrentIndex(ui->tabWidget->addTab(newTab, name));
 
-	newTab->setDatabaseData(SavedConnections::getConnection(name));
+	newTab->setConnectionData(SavedConnections::getConnection(name));
 	newTab->loadDatabases();
 }
 
@@ -92,10 +104,37 @@ void MainWindow::loadDatabases(int)
 		model->appendRow(data);
 	}
 
-	ui->tableDatabases->setModel(model);
-	ui->tableDatabases->resizeRowsToContents();
-	ui->tableDatabases->resizeColumnsToContents();
-	ui->tableDatabases->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+	ui->tableConnections->setModel(model);
+	ui->tableConnections->resizeRowsToContents();
+	ui->tableConnections->resizeColumnsToContents();
+	ui->tableConnections->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+}
+
+void MainWindow::tableContext(QPoint point)
+{
+	QPoint pos = ui->tableConnections->mapToGlobal(point);
+	QMenu tableMenu;
+
+	tableMenu.addAction("Edit");
+	tableMenu.addAction("Remove");
+
+	QAction* action = tableMenu.exec(pos);
+	if (action)
+	{
+		if (action->text() == "Edit")
+			showDialog(DIALOG_EDITCONNECTION);
+
+		if (action->text() == "Remove")
+		{
+			if (!ui->tableConnections->selectionModel()->hasSelection())
+				return;
+
+			QString selected = ui->tableConnections->selectionModel()->selectedRows()[0].data().toString();
+			SavedConnections::removeConnection(selected);
+
+			loadDatabases(0);
+		}
+	}
 }
 
 MainWindow::~MainWindow()

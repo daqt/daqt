@@ -2,8 +2,11 @@
 #define NEWCONNECTION_HPP
 
 #include <QDialog>
+#include <QMap>
+#include <QString>
 
-#define DIALOG_NEWCONNECTION 0x0D01
+#define DIALOG_NEWCONNECTION  0x0D01
+#define DIALOG_EDITCONNECTION 0x0D02
 
 namespace Ui {
 	class NewConnection;
@@ -15,10 +18,14 @@ class NewConnection : public QDialog
 
 public:
 	explicit NewConnection(QWidget* parent = 0);
+
+	void setValues(QMap<QString, QString> data);
+
 	~NewConnection();
 
 private:
 	Ui::NewConnection* ui;
+	QString oldName;
 	void tryHost();
 
 public slots:

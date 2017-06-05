@@ -14,6 +14,7 @@ class MainWindow : public QMainWindow
 
 public:
 	explicit MainWindow(QWidget* parent = 0);
+
 	~MainWindow();
 
 private:
@@ -21,10 +22,10 @@ private:
 
 public slots:
 	void showDialog(int dialog);
-	void openDatabase(QModelIndex index);
+	void openConnection(QModelIndex index);
 	void closeTab(int tab);
-
 	void loadDatabases(int);
+	void tableContext(QPoint point);
 };
 
 #endif // MAINWINDOW_HPP

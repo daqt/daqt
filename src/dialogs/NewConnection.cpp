@@ -28,6 +28,22 @@ NewConnection::NewConnection(QWidget* parent) :
 	connect(this, SIGNAL(finished(int)), (MainWindow*)parent, SLOT(loadDatabases(int)));
 }
 
+void NewConnection::setValues(QMap<QString, QString> data)
+{
+	oldName = data["name"];
+
+	ui->editName->setText(oldName);
+	ui->editHostname->setText(data["hostname"]);
+	ui->editPort->setText(data["port"]);
+	ui->editUsername->setText(data["username"]);
+	ui->editPassword->setText(data["password"]);
+
+	if (data["type"] == "MySQL")
+		ui->comboType->setCurrentIndex(0);
+
+	ui->buttonConnect->setText("Save");
+}
+
 void NewConnection::tryHost()
 {
 	QString url = ui->editHostname->text();
@@ -56,7 +72,7 @@ void NewConnection::resetHost(QString)
 	ui->editHostname->setStyleSheet("");
 	ui->editPort->setStyleSheet("");
 }
-
+#include <QDebug>
 void NewConnection::tryDatabase()
 {
 	tryHost();
@@ -90,6 +106,9 @@ void NewConnection::tryDatabase()
 		if (ui->checkPassword->isChecked())
 			map.insert("password", ui->editPassword->text()); //TODO: do something for safety
 
+		if (!oldName.isEmpty())
+			SavedConnections::removeConnection(oldName);
+
 		if (ui->editName->text().length() == 0)
 			SavedConnections::addConnection(ui->editName->placeholderText(), map);
 		else
@@ -113,7 +132,7 @@ void NewConnection::tryDatabase()
 
 void NewConnection::tryName()
 {
-	QRegularExpression reg("^[a-zA-Z0-9_.-]*$");
+	QRegularExpression reg("^[a-zA-Z0-9\\_\\.\\-\\ ]*$");
 
 	if (reg.match(ui->editName->text()).hasMatch())
 		ui->editName->setStyleSheet("color: #00dd00;");

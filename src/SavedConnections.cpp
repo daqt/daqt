@@ -70,9 +70,19 @@ bool SavedConnections::addConnection(QString name, QMap<QString, QString> data)
 	return true;
 }
 
+bool SavedConnections::removeConnection(QString name)
+{
+	QDir connection = QDir(SavedConnections::getPath() + QDir::separator() + name);
+
+	if (!connection.exists())
+		return false;
+
+	return connection.removeRecursively();
+}
+
 QMap<QString, QMap<QString, QString>> SavedConnections::getConnections()
 {
-	QStringList list = QDir(SavedConnections::getPath()).entryList();
+	QStringList list = QDir(SavedConnections::getPath()).entryList(QDir::NoDotAndDotDot | QDir::AllDirs);
 
 	QMap<QString, QMap<QString, QString>> databases;
 
@@ -80,7 +90,7 @@ QMap<QString, QMap<QString, QString>> SavedConnections::getConnections()
 	{
 		QString dir = it.i->t();
 
-		if (dir == "." || dir == ".." || !QDir().exists(SavedConnections::getPath() + QDir::separator() + dir))
+		if (!QDir().exists(SavedConnections::getPath() + QDir::separator() + dir))
 			continue;
 
 		QMap<QString, QString> data = SavedConnections::getConnection(dir);
