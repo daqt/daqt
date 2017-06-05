@@ -72,7 +72,7 @@ void NewConnection::resetHost(QString)
 	ui->editHostname->setStyleSheet("");
 	ui->editPort->setStyleSheet("");
 }
-#include <QDebug>
+
 void NewConnection::tryDatabase()
 {
 	tryHost();
@@ -96,6 +96,15 @@ void NewConnection::tryDatabase()
 	{
 		db.close();
 		db = QSqlDatabase();
+		QSqlDatabase::removeDatabase("testConnection");
+
+		if (ui->editName->styleSheet() == "color: #ff0000;")
+		{
+			ui->textError->setStyleSheet("color: #ff0000;");
+			ui->textError->setText("Invalid connection name");
+
+			return;
+		}
 
 		QMap<QString, QString> map;
 		map.insert("type", ui->comboType->currentText());
@@ -125,14 +134,13 @@ void NewConnection::tryDatabase()
 
 		db.close();
 		db = QSqlDatabase();
+		QSqlDatabase::removeDatabase("testConnection");
 	}
-
-	QSqlDatabase::removeDatabase("testConnection");
 }
 
 void NewConnection::tryName()
 {
-	QRegularExpression reg("^[a-zA-Z0-9\\_\\.\\-\\ ]*$");
+	QRegularExpression reg("^[a-zA-Z0-9\\_\\.\\-\\ ()]*$");
 
 	if (reg.match(ui->editName->text()).hasMatch())
 		ui->editName->setStyleSheet("color: #00dd00;");
