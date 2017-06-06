@@ -43,7 +43,7 @@ void ConnectionTab::loadDatabases()
 		if (connectionData["type"] == "MySQL")
 		{
 			QSqlQuery query(db);
-			query.prepare("SHOW DATABASES;");
+			query.prepare("SELECT `SCHEMA_NAME` FROM `information_schema`.`SCHEMATA`");
 			query.exec();
 
 			while (query.next())
@@ -69,10 +69,7 @@ void ConnectionTab::loadTables(QModelIndex index)
 			db.setDatabaseName(databaseName);
 
 			QSqlQuery query(db);
-			query.prepare("USE " + databaseName + ";");
-			query.exec();
-
-			query.prepare("SHOW TABLES;");
+			query.prepare("SELECT `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`='" + databaseName + "';");
 			query.exec();
 
 			while (query.next())
@@ -94,26 +91,29 @@ void ConnectionTab::openTable(QModelIndex index)
 		if (connectionData["type"] == "MySQL")
 		{
 			QSqlQuery query(db);
-			query.prepare("SELECT * FROM " + tableName + ";");
+
+			query.prepare("SELECT `COLUMN_NAME`,`DATA_TYPE` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "';");
 			query.exec();
 
 			QStandardItemModel* model = new QStandardItemModel(this);
 
 			QStringList header;
-			QSqlRecord record = query.record();
 
-			for (int i = 0; i < record.count(); i++)
+			while (query.next())
 			{
-				header.append(record.fieldName(i));
+				header.append(query.value(0).toString() + " (" + query.value(1).toString() + ")");
 			}
 
 			model->setHorizontalHeaderLabels(header);
+
+			query.prepare("SELECT * FROM `" + tableName + "`");
+			query.exec();
 
 			while (query.next())
 			{
 				QList<QStandardItem*> data;
 
-				for (int i = 0; i < record.count(); i++)
+				for (int i = 0; i < query.record().count(); i++)
 				{
 					data.append(new QStandardItem(query.value(i).toString()));
 				}
