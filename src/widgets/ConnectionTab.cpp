@@ -26,7 +26,7 @@ void ConnectionTab::setConnectionData(QMap<QString, QString> data)
 
 	QString driver = "QMYSQL";
 
-	if (connectionData["type"] == "MySQL")
+	if (connectionData["driver"] == "MySQL")
 		driver = "QMYSQL";
 
 	db = QSqlDatabase::addDatabase(driver, connectionData["name"]);
@@ -40,7 +40,7 @@ void ConnectionTab::loadDatabases()
 {
 	if (db.open())
 	{
-		if (connectionData["type"] == "MySQL")
+		if (connectionData["driver"] == "MySQL")
 		{
 			QSqlQuery query(db);
 			query.prepare("SELECT `SCHEMA_NAME` FROM `information_schema`.`SCHEMATA`");
@@ -64,7 +64,7 @@ void ConnectionTab::loadTables(QModelIndex index)
 
 		QString databaseName = index.data().toString();
 
-		if (connectionData["type"] == "MySQL")
+		if (connectionData["driver"] == "MySQL")
 		{
 			db.setDatabaseName(databaseName);
 
@@ -88,7 +88,7 @@ void ConnectionTab::openTable(QModelIndex index)
 	{
 		QString tableName = index.data().toString();
 
-		if (connectionData["type"] == "MySQL")
+		if (connectionData["driver"] == "MySQL")
 		{
 			QSqlQuery query(db);
 

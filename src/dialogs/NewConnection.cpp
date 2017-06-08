@@ -38,8 +38,8 @@ void NewConnection::setValues(QMap<QString, QString> data)
 	ui->editUsername->setText(data["username"]);
 	ui->editPassword->setText(data["password"]);
 
-	if (data["type"] == "MySQL")
-		ui->comboType->setCurrentIndex(0);
+	if (data["driver"] == "MySQL")
+		ui->comboDriver->setCurrentIndex(0);
 
 	ui->buttonConnect->setText("Save");
 }
@@ -79,7 +79,7 @@ void NewConnection::tryDatabase()
 
 	QString driver = "QMYSQL";
 
-	switch (ui->comboType->currentIndex())
+	switch (ui->comboDriver->currentIndex())
 	{
 	case 0:
 		driver = "QMYSQL";
@@ -107,7 +107,7 @@ void NewConnection::tryDatabase()
 		}
 
 		QMap<QString, QString> map;
-		map.insert("type", ui->comboType->currentText());
+		map.insert("driver", ui->comboDriver->currentText());
 		map.insert("hostname", ui->editHostname->text());
 		map.insert("port", ui->editPort->text());
 		map.insert("username", ui->editUsername->text());

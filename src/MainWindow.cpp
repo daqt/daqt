@@ -87,7 +87,7 @@ void MainWindow::loadDatabases(int)
 
 	QStringList header;
 	header.append("Name");
-	header.append("Type");
+	header.append("Driver");
 	header.append("Hostname");
 	header.append("Username");
 
@@ -97,7 +97,7 @@ void MainWindow::loadDatabases(int)
 	{
 		QList<QStandardItem*> data;
 		data.append(new QStandardItem(it.key()));
-		data.append(new QStandardItem(it.value()["type"]));
+		data.append(new QStandardItem(it.value()["driver"]));
 		data.append(new QStandardItem(it.value()["hostname"] + ":" + it.value()["port"]));
 		data.append(new QStandardItem(it.value()["username"]));
 
