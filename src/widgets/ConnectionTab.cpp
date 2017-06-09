@@ -5,7 +5,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlRecord>
-#include <QStandardItemModel>
+#include <QTableWidgetItem>
 
 ConnectionTab::ConnectionTab(QWidget* parent) :
 	QWidget(parent),
@@ -15,6 +15,7 @@ ConnectionTab::ConnectionTab(QWidget* parent) :
 
 	connect(ui->listDatabases, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(loadTables(QModelIndex)));
 	connect(ui->listTables, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(openTable(QModelIndex)));
+	connect(ui->tableValues, SIGNAL(cellChanged(int, int)), this, SLOT(changeValue(int, int)));
 }
 
 void ConnectionTab::setConnectionData(QMap<QString, QString> data)
@@ -51,9 +52,9 @@ void ConnectionTab::loadDatabases()
 				ui->listDatabases->addItem(query.value(0).toString());
 			}
 		}
-	}
 
-	db.close();
+		db.close();
+	}
 }
 
 void ConnectionTab::loadTables(QModelIndex index)
@@ -62,7 +63,7 @@ void ConnectionTab::loadTables(QModelIndex index)
 	{
 		ui->listTables->clear();
 
-		QString databaseName = index.data().toString();
+		databaseName = index.data().toString();
 
 		if (connectionData["driver"] == "MySQL")
 		{
@@ -77,16 +78,21 @@ void ConnectionTab::loadTables(QModelIndex index)
 				ui->listTables->addItem(query.value(0).toString());
 			}
 		}
-	}
 
-	db.close();
+		db.close();
+	}
 }
 
 void ConnectionTab::openTable(QModelIndex index)
 {
+	ui->tableValues->blockSignals(true);
+
+	ui->tableValues->setRowCount(0);
+	ui->tableValues->clearContents();
+
 	if (db.open())
 	{
-		QString tableName = index.data().toString();
+		tableName = index.data().toString();
 
 		if (connectionData["driver"] == "MySQL")
 		{
@@ -95,8 +101,6 @@ void ConnectionTab::openTable(QModelIndex index)
 			query.prepare("SELECT `COLUMN_NAME`,`DATA_TYPE` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "';");
 			query.exec();
 
-			QStandardItemModel* model = new QStandardItemModel(this);
-
 			QStringList header;
 
 			while (query.next())
@@ -104,29 +108,69 @@ void ConnectionTab::openTable(QModelIndex index)
 				header.append(query.value(0).toString() + " (" + query.value(1).toString() + ")");
 			}
 
-			model->setHorizontalHeaderLabels(header);
+			ui->tableValues->setColumnCount(header.length());
+			ui->tableValues->setHorizontalHeaderLabels(header);
+
+			query.prepare("SELECT `ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
+			query.exec();
+
+			while (query.next())
+			{
+				QTableWidgetItem* primary = ui->tableValues->horizontalHeaderItem(query.value(0).toInt() - 1);
+				primary->setTextColor(QColor().fromRgb(0xDD, 0xDD, 0x00));
+				ui->tableValues->setHorizontalHeaderItem(query.value(0).toInt() - 1, primary);
+			}
 
 			query.prepare("SELECT * FROM `" + tableName + "`");
 			query.exec();
 
 			while (query.next())
 			{
-				QList<QStandardItem*> data;
+				ui->tableValues->insertRow(ui->tableValues->rowCount());
 
 				for (int i = 0; i < query.record().count(); i++)
 				{
-					data.append(new QStandardItem(query.value(i).toString()));
+					ui->tableValues->setItem(ui->tableValues->rowCount() - 1, i, new QTableWidgetItem(query.value(i).toString()));
 				}
-
-				model->appendRow(data);
 			}
 
-			ui->tableValues->setModel(model);
 			ui->tableValues->resizeColumnsToContents();
 		}
+
+		db.close();
 	}
 
-	db.close();
+	ui->tableValues->blockSignals(false);
+}
+
+void ConnectionTab::changeValue(int row, int column)
+{
+	if (db.open())
+	{
+		QString primary = "id";
+		int primaryIndex = 0;
+
+		if (connectionData["driver"] == "MySQL")
+		{
+			QSqlQuery query(db);
+
+			query.prepare("SELECT `COLUMN_NAME`,`ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
+			query.exec();
+			query.next();
+
+			primary = query.value(0).toString();
+			primaryIndex = query.value(1).toInt() - 1;
+
+			QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
+			QString primaryVal = ui->tableValues->item(row, primaryIndex)->text();
+
+			query.prepare("UPDATE `" + tableName + "` SET `" + columnName + "`=? WHERE `" + primary + "`='" + primaryVal + "'");
+			query.addBindValue(ui->tableValues->item(row, column)->text());
+			query.exec();
+		}
+
+		db.close();
+	}
 }
 
 ConnectionTab::~ConnectionTab()

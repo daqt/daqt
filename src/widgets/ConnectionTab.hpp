@@ -27,10 +27,12 @@ private:
 	Ui::ConnectionTab* ui;
 	QMap<QString, QString> connectionData;
 	QSqlDatabase db;
+	QString databaseName, tableName;
 
 public slots:
 	void loadTables(QModelIndex index);
 	void openTable(QModelIndex index);
+	void changeValue(int row, int column);
 };
 
 #endif // DATABASETAB_HPP
