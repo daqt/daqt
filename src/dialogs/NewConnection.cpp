@@ -7,7 +7,6 @@
 #include <QSqlError>
 
 #include "src/MainWindow.hpp"
-#include "src/SavedConnections.hpp"
 #include "src/Utils.hpp"
 
 NewConnection::NewConnection(QWidget* parent) :
@@ -16,66 +15,71 @@ NewConnection::NewConnection(QWidget* parent) :
 {
 	ui->setupUi(this);
 
-	connect(ui->editHostname, SIGNAL(textChanged(QString)), this, SLOT(resetHost(QString)));
-	connect(ui->editPort, SIGNAL(textChanged(QString)), this, SLOT(resetHost(QString)));
+	connect(ui->editHostname, SIGNAL(textChanged(QString)), this, SLOT(resetHostColor(QString)));
+	connect(ui->editPort, SIGNAL(textChanged(QString)), this, SLOT(resetHostColor(QString)));
 
-	connect(ui->buttonConnect, SIGNAL(pressed()), this, SLOT(tryDatabase()));
+	connect(ui->buttonConnect, SIGNAL(pressed()), this, SLOT(tryConnect()));
 	connect(ui->buttonCancel, SIGNAL(pressed()), this, SLOT(close()));
 
-	connect(ui->editName, SIGNAL(editingFinished()), this, SLOT(tryName()));
-	connect(ui->editName, SIGNAL(textChanged(QString)), this, SLOT(resetName(QString)));
+	connect(ui->editName, SIGNAL(editingFinished()), this, SLOT(checkName()));
+	connect(ui->editName, SIGNAL(textChanged(QString)), this, SLOT(resetNameColor(QString)));
 
-	connect(this, SIGNAL(finished(int)), (MainWindow*)parent, SLOT(loadDatabases(int)));
+	if (qobject_cast<MainWindow*>(parent) != NULL)
+	{
+		connect(this, SIGNAL(finished(int)), (MainWindow*)parent, SLOT(loadConnections(int)));
+	}
 }
 
-void NewConnection::setValues(QMap<QString, QString> data)
+void NewConnection::setValues(Connection* connection)
 {
-	oldName = data["name"];
+	ui->editName->setText(connection->getName());
+	ui->editHostname->setText(connection->getHost().host());
+	ui->editPort->setText(QString::number(connection->getHost().port()));
+	ui->editUsername->setText(connection->getUsername());
 
-	ui->editName->setText(oldName);
-	ui->editHostname->setText(data["hostname"]);
-	ui->editPort->setText(data["port"]);
-	ui->editUsername->setText(data["username"]);
-	ui->editPassword->setText(data["password"]);
+	if (connection->getPassword().isEmpty())
+	{
+		ui->checkPassword->setChecked(false);
+	}
+	else
+	{
+		ui->editPassword->setText(connection->getPassword());
+	}
 
-	if (data["driver"] == "MySQL")
+	if (connection->getDriver() == "QMYSQL")
+	{
 		ui->comboDriver->setCurrentIndex(0);
+	}
 
+	this->setWindowTitle("Edit Connection");
 	ui->buttonConnect->setText("Save");
+
+	oldName = connection->getName();
 }
 
-void NewConnection::tryHost()
-{
-	QString url = ui->editHostname->text();
-
-	bool connected = false;
-
-	if (!(url.startsWith("http://") && url.startsWith("https://")))
-		connected = (Utils::pingUrl("http://" + url, ui->editPort->text().toInt()) | Utils::pingUrl("https://" + url, ui->editPort->text().toInt()));
-	else
-		connected = Utils::pingUrl(url, ui->editPort->text().toInt());
-
-	if (connected)
-	{
-		ui->editHostname->setStyleSheet("color: #00dd00;");
-		ui->editPort->setStyleSheet("color: #00dd00;");
-	}
-	else
-	{
-		ui->editHostname->setStyleSheet("color: #ff0000;");
-		ui->editPort->setStyleSheet("color: #ff0000;");
-	}
-}
-
-void NewConnection::resetHost(QString)
+void NewConnection::resetHostColor(QString)
 {
 	ui->editHostname->setStyleSheet("");
 	ui->editPort->setStyleSheet("");
 }
 
-void NewConnection::tryDatabase()
+void NewConnection::resetNameColor(QString)
 {
-	tryHost();
+	ui->editName->setStyleSheet("");
+}
+
+void NewConnection::tryConnect()
+{
+	if (ui->editHostname->text().isEmpty())
+	{
+		ui->editHostname->setText(ui->editHostname->placeholderText());
+	}
+
+	if (ui->editName->text().isEmpty())
+	{
+		ui->editName->setText(ui->editName->placeholderText());
+		checkName();
+	}
 
 	QString driver = "QMYSQL";
 
@@ -106,22 +110,30 @@ void NewConnection::tryDatabase()
 			return;
 		}
 
-		QMap<QString, QString> map;
-		map.insert("driver", ui->comboDriver->currentText());
-		map.insert("hostname", ui->editHostname->text());
-		map.insert("port", ui->editPort->text());
-		map.insert("username", ui->editUsername->text());
+		Connection* connection = new Connection();
+		connection->setName(ui->editName->text());
+		connection->setHost(ui->editHostname->text(), ui->editPort->text().toInt());
+		connection->setUsername(ui->editUsername->text());
+
+		if (ui->comboDriver->currentText() == "MySQL")
+		{
+			connection->setDriver("QMYSQL");
+		}
 
 		if (ui->checkPassword->isChecked())
-			map.insert("password", ui->editPassword->text()); //TODO: do something for safety
+		{
+			connection->setPassword(ui->editPassword->text());
+		}
 
-		if (!oldName.isEmpty())
-			SavedConnections::removeConnection(oldName);
+		if (!connection->isValid())
+		{
+			ui->textError->setStyleSheet("color: #ff0000;");
+			ui->textError->setText("Some values are wrong");
 
-		if (ui->editName->text().length() == 0)
-			SavedConnections::addConnection(ui->editName->placeholderText(), map);
-		else
-			SavedConnections::addConnection(ui->editName->text(), map);
+			return;
+		}
+
+		connection->save();
 
 		this->close();
 	}
@@ -138,22 +150,52 @@ void NewConnection::tryDatabase()
 	}
 }
 
-void NewConnection::tryName()
+void NewConnection::checkName()
 {
-	QRegularExpression reg("^[a-zA-Z0-9\\_\\.\\-\\ ()]*$");
+	if (ui->editName->text().isEmpty())
+	{
+		ui->editName->setText(ui->editName->placeholderText());
+	}
 
-	if (reg.match(ui->editName->text()).hasMatch())
+	QRegularExpression reg("^[a-zA-Z0-9\\_\\.\\-\\ ()]*$");
+	QString name = ui->editName->text();
+
+	if (reg.match(name).hasMatch())
+	{
+		QDir target(Utils::getConfigDirectory().absolutePath() + QDir::separator() + "connections" + QDir::separator() + name);
+
+		while (target.exists() && oldName.isEmpty())
+		{
+			reg.setPattern(".*\\ \\([0-9]\\)$");
+
+			if (reg.match(name).hasMatch())
+			{
+				int newVal = QString(name[name.length() - 2]).toInt() + 1;
+				name.remove(name.length() - 4, 4);
+
+				name += QString(QString(" (") + QString::number(newVal) + QString(")"));
+			}
+			else
+			{
+				name += " (1)";
+			}
+
+			target.setPath(Utils::getConfigDirectory().absolutePath() + QDir::separator() + "connections" + QDir::separator() + name);
+		}
+
+		ui->editName->setText(name);
+
 		ui->editName->setStyleSheet("color: #00dd00;");
+	}
 	else
+	{
 		ui->editName->setStyleSheet("color: #ff0000;");
+	}
 
 	if (ui->editName->text().length() == 0)
-		resetName("");
-}
-
-void NewConnection::resetName(QString)
-{
-	ui->editName->setStyleSheet("");
+	{
+		resetNameColor(NULL);
+	}
 }
 
 NewConnection::~NewConnection()

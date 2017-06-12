@@ -1,20 +1,27 @@
 #include "Utils.hpp"
 
-#include <QTcpSocket>
-#include <QUrl>
+#include <QStandardPaths>
 
-bool Utils::pingUrl(QString url, int port)
+QDir Utils::getConfigDirectory()
 {
-	QTcpSocket* socket = new QTcpSocket();
+	QDir config(QStandardPaths::standardLocations(QStandardPaths::AppConfigLocation)[0]);
 
-	socket->connectToHost(QUrl(url).host(), port);
-
-	if (socket->waitForConnected(100))
+	if (!config.exists())
 	{
-		socket->disconnectFromHost();
-
-		return true;
+		QDir().mkpath(config.absolutePath());
 	}
 
-	return false;
+	return config;
+}
+
+QString Utils::xorString(QString val, int key)
+{
+	QString str;
+
+	for (int c = 0; c < val.length(); c++)
+	{
+		str += QChar(val.toUtf8()[c] ^ key);
+	}
+
+	return str;
 }

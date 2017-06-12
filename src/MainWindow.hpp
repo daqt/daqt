@@ -24,8 +24,9 @@ public slots:
 	void showDialog(int dialog);
 	void openConnection(QModelIndex index);
 	void closeTab(int tab);
-	void loadDatabases(int);
+	void loadConnections(int);
 	void tableContext(QPoint point);
+	void closeCurrentTab();
 };
 
 #endif // MAINWINDOW_HPP

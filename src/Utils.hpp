@@ -1,14 +1,15 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+#include <QDir>
 #include <QString>
 
 class Utils
 {
 public:
-	static bool pingUrl(QString url, int port);
+	static QDir getConfigDirectory();
 
-	static bool removeDir(QString dir);
+	static QString xorString(QString val, int key);
 };
 
 #endif // UTILS_HPP

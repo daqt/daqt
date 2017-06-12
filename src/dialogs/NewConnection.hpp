@@ -5,6 +5,8 @@
 #include <QMap>
 #include <QString>
 
+#include "src/types/Connection.hpp"
+
 #define DIALOG_NEWCONNECTION  0x0D01
 #define DIALOG_EDITCONNECTION 0x0D02
 
@@ -19,21 +21,19 @@ class NewConnection : public QDialog
 public:
 	explicit NewConnection(QWidget* parent = 0);
 
-	void setValues(QMap<QString, QString> data);
+	void setValues(Connection* connection);
 
 	~NewConnection();
 
 private:
 	Ui::NewConnection* ui;
 	QString oldName;
-	void tryHost();
 
 public slots:
-	//TODO: Give better names
-	void resetHost(QString);
-	void tryDatabase();
-	void tryName();
-	void resetName(QString);
+	void resetHostColor(QString);
+	void resetNameColor(QString);
+	void tryConnect();
+	void checkName();
 };
 
 #endif // NEWCONNECTION_HPP

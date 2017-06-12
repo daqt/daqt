@@ -7,6 +7,8 @@
 #include <QString>
 #include <QWidget>
 
+#include "src/types/Connection.hpp"
+
 namespace Ui {
 	class ConnectionTab;
 }
@@ -18,21 +20,34 @@ class ConnectionTab : public QWidget
 public:
 	explicit ConnectionTab(QWidget* parent = 0);
 
-	void setConnectionData(QMap<QString, QString> data);
+	void setConnectionData(Connection* connection);
 	void loadDatabases();
+
+	bool canConnect();
+	QString getError();
+
+	void finish();
 
 	~ConnectionTab();
 
 private:
 	Ui::ConnectionTab* ui;
-	QMap<QString, QString> connectionData;
+	Connection* connectionData;
 	QSqlDatabase db;
-	QString databaseName, tableName;
+	QString databaseName, tableName, driver;
+
+	void requestPassword();
+	void handleError();
+
+signals:
+	void finished();
 
 public slots:
 	void loadTables(QModelIndex index);
 	void openTable(QModelIndex index);
 	void changeValue(int row, int column);
+	void setPassword(QString password, bool save);
+	void open(int code);
 };
 
 #endif // DATABASETAB_HPP

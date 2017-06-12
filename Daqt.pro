@@ -27,15 +27,18 @@ SOURCES += src/Main.cpp\
         src/MainWindow.cpp \
     src/dialogs/NewConnection.cpp \
     src/Utils.cpp \
-    src/SavedConnections.cpp \
-    src/widgets/ConnectionTab.cpp
+    src/widgets/ConnectionTab.cpp \
+    src/types/Connection.cpp \
+    src/dialogs/Password.cpp
 
 HEADERS  += src/MainWindow.hpp \
     src/dialogs/NewConnection.hpp \
     src/Utils.hpp \
-    src/SavedConnections.hpp \
-    src/widgets/ConnectionTab.hpp
+    src/widgets/ConnectionTab.hpp \
+    src/types/Connection.hpp \
+    src/dialogs/Password.hpp
 
 FORMS    += ui/forms/MainWindow.ui \
     ui/dialogs/NewConnection.ui \
-    ui/widgets/ConnectionTab.ui
+    ui/widgets/ConnectionTab.ui \
+    ui/dialogs/Password.ui

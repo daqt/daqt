@@ -1,13 +1,15 @@
 #include "src/MainWindow.hpp"
 #include "ui_MainWindow.h"
 
-#include <QMap>
+#include <QDir>
+#include <QList>
 #include <QSignalMapper>
 #include <QStandardItemModel>
 
 #include "src/dialogs/NewConnection.hpp"
+#include "src/types/Connection.hpp"
+#include "src/Utils.hpp"
 #include "src/widgets/ConnectionTab.hpp"
-#include "src/SavedConnections.hpp"
 
 MainWindow::MainWindow(QWidget* parent) :
 	QMainWindow(parent),
@@ -19,20 +21,16 @@ MainWindow::MainWindow(QWidget* parent) :
 
 	connect(ui->buttonNewConnection, SIGNAL(pressed()), mapper, SLOT(map()));
 	mapper->setMapping(ui->buttonNewConnection, DIALOG_NEWCONNECTION);
-
 	connect(ui->actionNewConnection, SIGNAL(triggered()), mapper, SLOT(map()));
 	mapper->setMapping(ui->actionNewConnection, DIALOG_NEWCONNECTION);
-
 	connect(mapper, SIGNAL(mapped(int)), this, SLOT(showDialog(int)));
 
-	loadDatabases(0);
+	loadConnections(0);
 
 	connect(ui->tableConnections, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(openConnection(QModelIndex)));
-
 	connect(ui->tableConnections, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(tableContext(QPoint)));
 
 	ui->tabWidget->tabBar()->tabButton(0, QTabBar::RightSide)->resize(0, 0);
-
 	connect(ui->tabWidget, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
 }
 
@@ -50,15 +48,17 @@ void MainWindow::showDialog(int dialog)
 			return;
 
 		qDialog = new NewConnection(this);
-		qDialog->setWindowTitle("Edit connection");
-
 		QString selected = ui->tableConnections->selectionModel()->selectedRows()[0].data().toString();
-		((NewConnection*)qDialog)->setValues(SavedConnections::getConnection(selected));
+		Connection* connection = new Connection(selected);
+		connection->load();
+
+		((NewConnection*)qDialog)->setValues(connection);
+
 		break;
 	}
 
 	qDialog->setModal(true);
-	qDialog->show();
+	qDialog->exec();
 }
 
 void MainWindow::openConnection(QModelIndex index)
@@ -67,21 +67,45 @@ void MainWindow::openConnection(QModelIndex index)
 
 	ConnectionTab* newTab = new ConnectionTab(ui->tabWidget);
 
+	connect(newTab, SIGNAL(finished()), this, SLOT(closeCurrentTab()));
+
 	ui->tabWidget->setCurrentIndex(ui->tabWidget->addTab(newTab, name));
 
-	newTab->setConnectionData(SavedConnections::getConnection(name));
-	newTab->loadDatabases();
+	Connection* connection = new Connection(name);
+	connection->load();
+
+	newTab->setConnectionData(connection);
+	newTab->open(1);
 }
 
 void MainWindow::closeTab(int tab)
 {
 	if (tab > 0)
+	{
 		ui->tabWidget->removeTab(tab);
+	}
 }
 
-void MainWindow::loadDatabases(int)
+void MainWindow::loadConnections(int)
 {
-	QMap<QString, QMap<QString, QString>> databases = SavedConnections::getConnections();
+	QList<Connection*> connections;
+
+	QStringList list = QDir(Utils::getConfigDirectory().absolutePath() + QDir::separator() + "connections").entryList(QDir::NoDotAndDotDot | QDir::AllDirs);
+
+	for (QStringList::iterator it = list.begin(); it != list.end(); it++)
+	{
+		QString dir = it.i->t();
+
+		if (!QDir().exists(Utils::getConfigDirectory().absolutePath() + QDir::separator() + "connections" + QDir::separator() + dir))
+		{
+			continue;
+		}
+
+		Connection* con = new Connection(dir);
+		con->load();
+
+		connections.push_back(con);
+	}
 
 	QStandardItemModel* model = new QStandardItemModel(this);
 
@@ -93,13 +117,20 @@ void MainWindow::loadDatabases(int)
 
 	model->setHorizontalHeaderLabels(header);
 
-	for (QMap<QString, QMap<QString, QString>>::iterator it = databases.begin(); it != databases.end(); it++)
+	for (int c = 0; c < connections.length(); c++)
 	{
+		Connection* connection = connections[c];
+
 		QList<QStandardItem*> data;
-		data.append(new QStandardItem(it.key()));
-		data.append(new QStandardItem(it.value()["driver"]));
-		data.append(new QStandardItem(it.value()["hostname"] + ":" + it.value()["port"]));
-		data.append(new QStandardItem(it.value()["username"]));
+		data.append(new QStandardItem(connection->getName()));
+
+		if (connection->getDriver() == "QMYSQL")
+		{
+			data.append(new QStandardItem("MySQL"));
+		}
+
+		data.append(new QStandardItem(connection->getHost().host() + ":" + QString::number(connection->getHost().port())));
+		data.append(new QStandardItem(connection->getUsername()));
 
 		model->appendRow(data);
 	}
@@ -121,19 +152,30 @@ void MainWindow::tableContext(QPoint point)
 	if (action)
 	{
 		if (action->text() == "Edit")
+		{
 			showDialog(DIALOG_EDITCONNECTION);
+		}
 
 		if (action->text() == "Remove")
 		{
 			if (!ui->tableConnections->selectionModel()->hasSelection())
+			{
 				return;
+			}
 
 			QString selected = ui->tableConnections->selectionModel()->selectedRows()[0].data().toString();
-			SavedConnections::removeConnection(selected);
+			QDir dir(Utils::getConfigDirectory().absolutePath() + QDir::separator() + "connections" + QDir::separator() + selected);
 
-			loadDatabases(0);
+			dir.removeRecursively();
+
+			loadConnections(0);
 		}
 	}
+}
+
+void MainWindow::closeCurrentTab()
+{
+	closeTab(ui->tabWidget->currentIndex());
 }
 
 MainWindow::~MainWindow()

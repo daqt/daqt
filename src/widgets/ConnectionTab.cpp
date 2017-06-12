@@ -6,6 +6,9 @@
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QTableWidgetItem>
+#include <QThread>
+
+#include "src/dialogs/Password.hpp"
 
 ConnectionTab::ConnectionTab(QWidget* parent) :
 	QWidget(parent),
@@ -18,30 +21,37 @@ ConnectionTab::ConnectionTab(QWidget* parent) :
 	connect(ui->tableValues, SIGNAL(cellChanged(int, int)), this, SLOT(changeValue(int, int)));
 }
 
-void ConnectionTab::setConnectionData(QMap<QString, QString> data)
+void ConnectionTab::setConnectionData(Connection* connection)
 {
-	connectionData = data;
+	connectionData = connection;
 
-	if (connectionData.empty())
+	if (connectionData == NULL || !connectionData->isValid())
+	{
 		return;
+	}
 
-	QString driver = "QMYSQL";
+	db = QSqlDatabase::addDatabase(connectionData->getDriver(), connectionData->getName());
+	db.setHostName(connectionData->getHost().host());
+	db.setPort(connectionData->getHost().port());
+	db.setUserName(connectionData->getUsername());
 
-	if (connectionData["driver"] == "MySQL")
-		driver = "QMYSQL";
+	driver = connectionData->getDriver();
 
-	db = QSqlDatabase::addDatabase(driver, connectionData["name"]);
-	db.setHostName(connectionData["hostname"]);
-	db.setPort(connectionData["port"].toInt());
-	db.setUserName(connectionData["username"]);
-	db.setPassword(connectionData["password"]);
+	if (!connectionData->getPassword().isNull())
+	{
+		db.setPassword(connectionData->getPassword());
+	}
+	else
+	{
+		requestPassword();
+	}
 }
 
 void ConnectionTab::loadDatabases()
 {
 	if (db.open())
 	{
-		if (connectionData["driver"] == "MySQL")
+		if (driver == "QMYSQL")
 		{
 			QSqlQuery query(db);
 			query.prepare("SELECT `SCHEMA_NAME` FROM `information_schema`.`SCHEMATA`");
@@ -57,6 +67,29 @@ void ConnectionTab::loadDatabases()
 	}
 }
 
+bool ConnectionTab::canConnect()
+{
+	if (db.open())
+	{
+		db.close();
+
+		return true;
+	}
+
+	return false;
+}
+
+QString ConnectionTab::getError()
+{
+	return db.lastError().databaseText();
+}
+
+void ConnectionTab::finish()
+{
+	emit finished();
+	this->close();
+}
+
 void ConnectionTab::loadTables(QModelIndex index)
 {
 	if (db.open())
@@ -65,7 +98,7 @@ void ConnectionTab::loadTables(QModelIndex index)
 
 		databaseName = index.data().toString();
 
-		if (connectionData["driver"] == "MySQL")
+		if (driver == "QMYSQL")
 		{
 			db.setDatabaseName(databaseName);
 
@@ -94,7 +127,7 @@ void ConnectionTab::openTable(QModelIndex index)
 	{
 		tableName = index.data().toString();
 
-		if (connectionData["driver"] == "MySQL")
+		if (driver == "QMYSQL")
 		{
 			QSqlQuery query(db);
 
@@ -150,7 +183,7 @@ void ConnectionTab::changeValue(int row, int column)
 		QString primary = "id";
 		int primaryIndex = 0;
 
-		if (connectionData["driver"] == "MySQL")
+		if (driver == "QMYSQL")
 		{
 			QSqlQuery query(db);
 
@@ -173,10 +206,66 @@ void ConnectionTab::changeValue(int row, int column)
 	}
 }
 
+void ConnectionTab::setPassword(QString password, bool save)
+{
+	db.setPassword(password);
+
+	if (save)
+	{
+		connectionData->setPassword(password);
+		connectionData->save();
+	}
+}
+
+void ConnectionTab::requestPassword()
+{
+	Password* password = new Password();
+
+	connect(password, SIGNAL(sendPassword(QString, bool)), this, SLOT(setPassword(QString, bool)));
+	connect(password, SIGNAL(finished(int)), this, SLOT(open(int)));
+
+	password->setModal(true);
+	password->exec();
+}
+
+void ConnectionTab::handleError()
+{
+	setStatusTip(getError());
+
+	if (driver == "QMYSQL")
+	{
+		switch (db.lastError().nativeErrorCode().toInt())
+		{
+		case 1045:
+			requestPassword();
+			break;
+		}
+	}
+}
+
+void ConnectionTab::open(int code)
+{
+	if (canConnect())
+	{
+		loadDatabases();
+	}
+	else
+	{
+		if (code > 0)
+		{
+			handleError();
+		}
+		else
+		{
+			finish();
+		}
+	}
+}
+
 ConnectionTab::~ConnectionTab()
 {
 	db = QSqlDatabase();
-	QSqlDatabase::removeDatabase(connectionData["name"]);
+	QSqlDatabase::removeDatabase(connectionData->getName());
 
 	delete ui;
 }
