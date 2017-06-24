@@ -97,17 +97,35 @@
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
+    <property name="locale">
+     <locale language="English" country="UnitedStates"/>
+    </property>
     <property name="title">
      <string>Fi&amp;le</string>
     </property>
     <addaction name="actionNewConnection"/>
    </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="locale">
+     <locale language="English" country="UnitedStates"/>
+    </property>
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout_Daqt"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionNewConnection">
    <property name="text">
     <string>&amp;New Connection</string>
+   </property>
+  </action>
+  <action name="actionAbout_Daqt">
+   <property name="text">
+    <string>About Daqt</string>
    </property>
   </action>
  </widget>

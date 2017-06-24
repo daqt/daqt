@@ -7,6 +7,7 @@
 #include <QStandardItemModel>
 
 #include "src/dialogs/NewConnection.hpp"
+#include "src/dialogs/About.hpp"
 #include "src/types/Connection.hpp"
 #include "src/Utils.hpp"
 #include "src/widgets/ConnectionTab.hpp"
@@ -23,6 +24,8 @@ MainWindow::MainWindow(QWidget* parent) :
 	mapper->setMapping(ui->buttonNewConnection, DIALOG_NEWCONNECTION);
 	connect(ui->actionNewConnection, SIGNAL(triggered()), mapper, SLOT(map()));
 	mapper->setMapping(ui->actionNewConnection, DIALOG_NEWCONNECTION);
+	connect(ui->actionAbout_Daqt, SIGNAL(triggered()), mapper, SLOT(map()));
+	mapper->setMapping(ui->actionAbout_Daqt, DIALOG_ABOUT);
 	connect(mapper, SIGNAL(mapped(int)), this, SLOT(showDialog(int)));
 
 	loadConnections(0);
@@ -42,6 +45,11 @@ void MainWindow::showDialog(int dialog)
 	{
 	case DIALOG_NEWCONNECTION:
 		qDialog = new NewConnection(this);
+		break;
+	case DIALOG_ABOUT:
+		qDialog = new About(this);
+
+		qDialog->setFixedSize(480, 320);
 		break;
 	case DIALOG_EDITCONNECTION:
 		if (!ui->tableConnections->selectionModel()->hasSelection())
