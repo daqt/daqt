@@ -30,7 +30,8 @@ SOURCES += src/Main.cpp\
     src/widgets/ConnectionTab.cpp \
     src/types/Connection.cpp \
     src/dialogs/Password.cpp \
-    src/dialogs/About.cpp
+    src/dialogs/About.cpp \
+    src/widgets/LongSpinBox.cpp
 
 HEADERS  += src/MainWindow.hpp \
     src/dialogs/NewConnection.hpp \
@@ -38,7 +39,8 @@ HEADERS  += src/MainWindow.hpp \
     src/widgets/ConnectionTab.hpp \
     src/types/Connection.hpp \
     src/dialogs/Password.hpp \
-    src/dialogs/About.hpp
+    src/dialogs/About.hpp \
+    src/widgets/LongSpinBox.hpp
 
 FORMS    += ui/forms/MainWindow.ui \
     ui/dialogs/NewConnection.ui \

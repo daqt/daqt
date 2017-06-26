@@ -4,6 +4,7 @@
 #include <QCalendarWidget>
 #include <QDateTimeEdit>
 #include <QSignalMapper>
+#include <QDoubleSpinBox>
 #include <QSqlDriver>
 #include <QSqlError>
 #include <QSqlField>
@@ -13,6 +14,7 @@
 #include <QThread>
 
 #include "src/dialogs/Password.hpp"
+#include "src/widgets/LongSpinBox.hpp"
 
 ConnectionTab::ConnectionTab(QWidget* parent) :
 	QWidget(parent),
@@ -183,35 +185,7 @@ void ConnectionTab::openTable(QModelIndex index)
 						continue;
 					}
 
-					QVariant type = query.record().field(i).type();
-
-					if (type.type() == type.DateTime)
-					{
-						QDateTimeEdit* edit = new QDateTimeEdit(ui->tableValues);
-						QCalendarWidget* calendar = new QCalendarWidget(edit);
-
-						calendar->setGridVisible(true);
-
-						if ((ui->tableValues->rowCount() - 1) % 2 == 1)
-						{
-							QColor background = QPalette().alternateBase().color();
-							edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
-						}
-
-						edit->setCalendarPopup(true);
-						edit->setCalendarWidget(calendar);
-						edit->setDateTime(query.value(i).toDateTime());
-
-						QString str;
-						str += QString::number(ui->tableValues->rowCount() - 1);
-						str += ",";
-						str += QString::number(i);
-
-						connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
-						mapper->setMapping(edit, str);
-
-						ui->tableValues->setCellWidget(ui->tableValues->rowCount() - 1, i, edit);
-					}
+					handleType(ui->tableValues->rowCount() - 1, i);
 				}
 			}
 
@@ -330,7 +304,14 @@ void ConnectionTab::handleType(int row, int column)
 
 			QVariant type = query.record().field(columnName).type();
 
-			if (type.type() == type.DateTime)
+			query.prepare("SELECT * FROM `" + tableName + "`");
+			query.exec();
+
+			query.seek(row);
+
+			switch (type.type())
+			{
+			case type.DateTime:
 			{
 				QDateTimeEdit* edit = new QDateTimeEdit(ui->tableValues);
 				QCalendarWidget* calendar = new QCalendarWidget(edit);
@@ -345,7 +326,15 @@ void ConnectionTab::handleType(int row, int column)
 
 				edit->setCalendarPopup(true);
 				edit->setCalendarWidget(calendar);
-				edit->setDateTime(QDateTime().currentDateTime());
+
+				if (query.value(column).toString().isEmpty())
+				{
+					edit->setDateTime(QDateTime().currentDateTime());
+				}
+				else
+				{
+					edit->setDateTime(query.value(column).toDateTime());
+				}
 
 				QString str;
 				str += QString::number(row);
@@ -356,6 +345,83 @@ void ConnectionTab::handleType(int row, int column)
 				mapper->setMapping(edit, str);
 
 				ui->tableValues->setCellWidget(row, column, edit);
+				break;
+			}
+			case type.Double:
+			{
+				QDoubleSpinBox* edit = new QDoubleSpinBox(ui->tableValues);
+
+				if (row % 2 == 1)
+				{
+					QColor background = QPalette().alternateBase().color();
+					edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
+				}
+
+				edit->setValue(query.value(column).toDouble());
+
+				QString str;
+				str += QString::number(row);
+				str += ",";
+				str += QString::number(column);
+
+				connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
+				mapper->setMapping(edit, str);
+
+				ui->tableValues->setCellWidget(row, column, edit);
+				break;
+			}
+			case type.UInt:
+			case type.Int:
+			case type.LongLong:
+			case type.ULongLong:
+			{
+				LongSpinBox* edit = new LongSpinBox(ui->tableValues);
+
+				if (row % 2 == 1)
+				{
+					QColor background = QPalette().alternateBase().color();
+					edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
+				}
+
+				if (type.type() == type.Int)
+				{
+					edit->setMaximum(INT_MAX);
+					edit->setMinimum(INT_MIN);
+					edit->setValue(query.value(column).toInt());
+				}
+				else if (type.type() == type.UInt)
+				{
+					edit->setMaximum(UINT_MAX);
+					edit->setMinimum(0);
+					edit->setValue(query.value(column).toUInt());
+				}
+				else if (type.type() == type.LongLong)
+				{
+					edit->setMaximum(LONG_LONG_MAX);
+					edit->setMinimum(LONG_LONG_MIN);
+					edit->setValue(query.value(column).toLongLong());
+				}
+				else if (type.type() == type.ULongLong)
+				{
+					edit->setMaximum(ULONG_LONG_MAX);
+					edit->setMinimum(0);
+					edit->setValue(query.value(column).toULongLong());
+				}
+
+				QString str;
+				str += QString::number(row);
+				str += ",";
+				str += QString::number(column);
+
+				connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
+				mapper->setMapping(edit, str);
+
+				ui->tableValues->setCellWidget(row, column, edit);
+
+				break;
+			}
+			default:
+				break;
 			}
 
 			connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
@@ -386,24 +452,64 @@ void ConnectionTab::editFinished(QString data)
 
 			QVariant type = query.record().field(columnName).type();
 
-			if (type.type() == type.DateTime)
+			query.prepare("SELECT `COLUMN_NAME`,`ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
+			query.exec();
+			query.next();
+
+			primary = query.value(0).toString();
+			primaryIndex = query.value(1).toInt() - 1;
+
+			QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
+			QString primaryVal = ui->tableValues->item(row, primaryIndex)->text();
+
+			query.prepare("UPDATE `" + tableName + "` SET `" + columnName + "`=? WHERE `" + primary + "`='" + primaryVal + "'");
+
+			switch (type.type())
+			{
+			case type.DateTime:
 			{
 				QDateTimeEdit* edit = qobject_cast<QDateTimeEdit*>(ui->tableValues->cellWidget(row, column));
 
-				query.prepare("SELECT `COLUMN_NAME`,`ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
-				query.exec();
-				query.next();
-
-				primary = query.value(0).toString();
-				primaryIndex = query.value(1).toInt() - 1;
-
-				QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
-				QString primaryVal = ui->tableValues->item(row, primaryIndex)->text();
-
-				query.prepare("UPDATE `" + tableName + "` SET `" + columnName + "`=? WHERE `" + primary + "`='" + primaryVal + "'");
 				query.addBindValue(edit->dateTime().toString(Qt::ISODate));
-				query.exec();
+				break;
 			}
+			case type.Double:
+			{
+				QDoubleSpinBox* edit = qobject_cast<QDoubleSpinBox*>(ui->tableValues->cellWidget(row, column));
+
+				query.addBindValue(edit->text());
+				break;
+			}
+			case type.Int:
+			case type.UInt:
+			case type.LongLong:
+			case type.ULongLong:
+			{
+				LongSpinBox* edit = qobject_cast<LongSpinBox*>(ui->tableValues->cellWidget(row, column));
+
+				if (type.type() == type.Int)
+				{
+					query.addBindValue(edit->text().toInt());
+				}
+				else if (type.type() == type.UInt)
+				{
+					query.addBindValue(edit->text().toUInt());
+				}
+				else if (type.type() == type.LongLong)
+				{
+					query.addBindValue(edit->text().toLongLong());
+				}
+				else if (type.type() == type.ULongLong)
+				{
+					query.addBindValue(edit->text().toULongLong());
+				}
+				break;
+			}
+			default:
+				break;
+			}
+
+			query.exec();
 		}
 	}
 }

@@ -16,32 +16,32 @@ namespace Ui {
 class ConnectionTab : public QWidget
 {
 	Q_OBJECT
-
+	
 public:
 	explicit ConnectionTab(QWidget* parent = 0);
-
+	
 	void setConnectionData(Connection* connection);
 	void loadDatabases();
-
+	
 	bool canConnect();
 	QString getError();
-
+	
 	void finish();
-
+	
 	~ConnectionTab();
-
+	
 private:
 	Ui::ConnectionTab* ui;
 	Connection* connectionData;
 	QSqlDatabase db;
 	QString databaseName, tableName, driver;
-
+	
 	void requestPassword();
 	void handleError();
-
+	
 signals:
 	void finished();
-
+	
 public slots:
 	void loadTables(QModelIndex index);
 	void openTable(QModelIndex index);
