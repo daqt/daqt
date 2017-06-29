@@ -2,7 +2,9 @@
 #include "ui_ConnectionTab.h"
 
 #include <QCalendarWidget>
+#include <QComboBox>
 #include <QDateTimeEdit>
+#include <QLineEdit>
 #include <QSignalMapper>
 #include <QDoubleSpinBox>
 #include <QSqlDriver>
@@ -14,6 +16,7 @@
 #include <QThread>
 
 #include "src/dialogs/Password.hpp"
+#include "src/widgets/FlatComboBox.hpp"
 #include "src/widgets/LongSpinBox.hpp"
 
 ConnectionTab::ConnectionTab(QWidget* parent) :
@@ -291,6 +294,7 @@ void ConnectionTab::handleType(int row, int column)
 	if (db.open())
 	{
 		QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
+		QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
 
 		QSignalMapper* mapper = new QSignalMapper();
 
@@ -308,6 +312,42 @@ void ConnectionTab::handleType(int row, int column)
 			query.exec();
 
 			query.seek(row);
+
+			if (columnType == "enum")
+			{
+				FlatComboBox* edit = new FlatComboBox(ui->tableValues);
+
+				if (row % 2 == 1)
+				{
+					QColor background = QPalette().alternateBase().color();
+					edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
+				}
+
+				QString current = query.value(column).toString();
+
+				query.prepare("SELECT `COLUMN_TYPE` FROM `information_schema`.`COLUMNS` WHERE `COLUMN_NAME`='" + columnName + "' AND `TABLE_NAME`='" + tableName + "' AND `TABLE_SCHEMA`='" + databaseName + "'");
+				query.exec();
+				query.next();
+
+				QString val = query.value(0).toString();
+				val = val.remove(val.length() - 1, 1).remove(0, columnType.length() + 1).replace("\'", "");
+
+				QStringList enumParts = val.split(',');
+
+				edit->addItems(enumParts);
+
+				edit->setCurrentText(current);
+
+				QString str;
+				str += QString::number(row);
+				str += ",";
+				str += QString::number(column);
+
+				connect(edit, SIGNAL(currentIndexChanged(int)), mapper, SLOT(map()));
+				mapper->setMapping(edit, str);
+
+				ui->tableValues->setCellWidget(row, column, edit);
+			}
 
 			switch (type.type())
 			{
@@ -401,9 +441,9 @@ void ConnectionTab::handleType(int row, int column)
 					edit->setMinimum(LONG_LONG_MIN);
 					edit->setValue(query.value(column).toLongLong());
 				}
-				else if (type.type() == type.ULongLong)
+				else if (type.type() == type.ULongLong) //Not supported yet
 				{
-					edit->setMaximum(ULONG_LONG_MAX);
+					edit->setMaximum(LONG_LONG_MAX);
 					edit->setMinimum(0);
 					edit->setValue(query.value(column).toULongLong());
 				}
@@ -460,9 +500,19 @@ void ConnectionTab::editFinished(QString data)
 			primaryIndex = query.value(1).toInt() - 1;
 
 			QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
+			QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
 			QString primaryVal = ui->tableValues->item(row, primaryIndex)->text();
 
 			query.prepare("UPDATE `" + tableName + "` SET `" + columnName + "`=? WHERE `" + primary + "`='" + primaryVal + "'");
+
+			if (columnType == "enum")
+			{
+				FlatComboBox* edit = qobject_cast<FlatComboBox*>(ui->tableValues->cellWidget(row, column));
+
+				ui->tableValues->item(row, column)->setText(edit->currentText());
+
+				query.addBindValue(edit->currentText());
+			}
 
 			switch (type.type())
 			{
