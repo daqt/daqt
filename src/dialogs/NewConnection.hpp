@@ -34,6 +34,9 @@ public slots:
 	void resetNameColor(QString);
 	void tryConnect();
 	void checkName();
+	void checkFile(QString);
+	void changeDriver(QString driver);
+	void browseFile(bool);
 };
 
 #endif // NEWCONNECTION_HPP

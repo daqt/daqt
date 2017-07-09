@@ -120,7 +120,7 @@ void MainWindow::loadConnections(int)
 	QStringList header;
 	header.append("Name");
 	header.append("Driver");
-	header.append("Hostname");
+	header.append("Host");
 	header.append("Username");
 
 	model->setHorizontalHeaderLabels(header);
@@ -135,10 +135,16 @@ void MainWindow::loadConnections(int)
 		if (connection->getDriver() == "QMYSQL")
 		{
 			data.append(new QStandardItem("MySQL"));
-		}
 
-		data.append(new QStandardItem(connection->getHost().host() + ":" + QString::number(connection->getHost().port())));
-		data.append(new QStandardItem(connection->getUsername()));
+			data.append(new QStandardItem(connection->getHost().host() + ":" + QString::number(connection->getHost().port())));
+			data.append(new QStandardItem(connection->getUsername()));
+		}
+		else if (connection->getDriver() == "QSQLITE")
+		{
+			data.append(new QStandardItem("SQLite"));
+
+			data.append(new QStandardItem(connection->getPath()));
+		}
 
 		model->appendRow(data);
 	}

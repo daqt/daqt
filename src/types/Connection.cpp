@@ -94,9 +94,29 @@ void Connection::setDriver(QString driver)
 	this->driver = driver;
 }
 
+QString Connection::getPath()
+{
+	return this->path;
+}
+
+void Connection::setPath(QString path)
+{
+	this->path = path;
+}
+
 bool Connection::isValid()
 {
-	return !(this->getName().isEmpty() && this->getHost().isEmpty() && this->getUsername().isEmpty() && this->getDriver().isEmpty());
+	if (!(this->getName().isEmpty() && this->getHost().isEmpty() && this->getUsername().isEmpty() && this->getDriver().isEmpty()))
+	{
+		return true;
+	}
+
+	if (this->getDriver() == "QSQLITE" && !(this->getName().isEmpty() && this->getPath().isEmpty()))
+	{
+		return true;
+	}
+
+	return false;
 }
 
 bool Connection::load()
@@ -137,6 +157,10 @@ bool Connection::load()
 			{
 				setDriver(val);
 			}
+			if (key == "path")
+			{
+				setPath(val);
+			}
 		}
 
 		file.close();
@@ -166,13 +190,21 @@ bool Connection::save()
 	{
 		QTextStream stream(&file);
 
-		stream << Utils::xorString("host: " + this->getHost().toString(), this->getHost().toString().length()) << "." << this->getHost().toString().length() << endl;
-		stream << Utils::xorString("username: " + this->getUsername(), this->getUsername().length()) << "." << this->getUsername().length() << endl;
 		stream << Utils::xorString("driver: " + this->getDriver(), this->getDriver().length()) << "." << this->getDriver().length() << endl;
 
-		if (!this->getPassword().isNull())
+		if (this->getDriver() == "QSQLITE")
 		{
-			stream << Utils::xorString("password: " + this->getPassword(), this->getPassword().length()) << "." << this->getPassword().length() << endl;
+			stream << Utils::xorString("path: " + this->getPath(), this->getPath().length()) << "." << this->getPath().length() << endl;
+		}
+		else
+		{
+			stream << Utils::xorString("host: " + this->getHost().toString(), this->getHost().toString().length()) << "." << this->getHost().toString().length() << endl;
+			stream << Utils::xorString("username: " + this->getUsername(), this->getUsername().length()) << "." << this->getUsername().length() << endl;
+
+			if (!this->getPassword().isNull())
+			{
+				stream << Utils::xorString("password: " + this->getPassword(), this->getPassword().length()) << "." << this->getPassword().length() << endl;
+			}
 		}
 
 		file.close();

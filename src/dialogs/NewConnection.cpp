@@ -1,9 +1,11 @@
 #include "src/dialogs/NewConnection.hpp"
 #include "ui_NewConnection.h"
 
+#include <QFileDialog>
 #include <QMap>
 #include <QRegularExpression>
 #include <QSqlDatabase>
+#include <QSqlDriver>
 #include <QSqlError>
 
 #include "src/MainWindow.hpp"
@@ -24,31 +26,65 @@ NewConnection::NewConnection(QWidget* parent) :
 	connect(ui->editName, SIGNAL(editingFinished()), this, SLOT(checkName()));
 	connect(ui->editName, SIGNAL(textChanged(QString)), this, SLOT(resetNameColor(QString)));
 
+	connect(ui->comboDriver, SIGNAL(currentIndexChanged(QString)), this, SLOT(changeDriver(QString)));
+
+	connect(ui->buttonBrowse, SIGNAL(clicked(bool)), this, SLOT(browseFile(bool)));
+
+	connect(ui->editHostname, SIGNAL(textChanged(QString)), this, SLOT(checkFile(QString)));
+
 	if (qobject_cast<MainWindow*>(parent) != NULL)
 	{
 		connect(this, SIGNAL(finished(int)), (MainWindow*)parent, SLOT(loadConnections(int)));
 	}
+
+	QStringList drivers = QSqlDatabase::drivers();
+
+	if (drivers.length() > 0)
+	{
+		ui->comboDriver->removeItem(0);
+
+		for (int i = 0; i < drivers.length(); i++)
+		{
+			if (drivers[i] == "QMYSQL")
+			{
+				ui->comboDriver->addItem("MySQL");
+			}
+			else if (drivers[i] == "QSQLITE")
+			{
+				ui->comboDriver->addItem("SQLite");
+			}
+		}
+	}
+
+	changeDriver(ui->comboDriver->currentText());
 }
 
 void NewConnection::setValues(Connection* connection)
 {
 	ui->editName->setText(connection->getName());
-	ui->editHostname->setText(connection->getHost().host());
-	ui->editPort->setText(QString::number(connection->getHost().port()));
-	ui->editUsername->setText(connection->getUsername());
-
-	if (connection->getPassword().isEmpty())
-	{
-		ui->checkPassword->setChecked(false);
-	}
-	else
-	{
-		ui->editPassword->setText(connection->getPassword());
-	}
 
 	if (connection->getDriver() == "QMYSQL")
 	{
-		ui->comboDriver->setCurrentIndex(0);
+		ui->comboDriver->setCurrentText("MySQL");
+
+		ui->editHostname->setText(connection->getHost().host());
+		ui->editPort->setText(QString::number(connection->getHost().port()));
+		ui->editUsername->setText(connection->getUsername());
+
+		if (connection->getPassword().isEmpty())
+		{
+			ui->checkPassword->setChecked(false);
+		}
+		else
+		{
+			ui->editPassword->setText(connection->getPassword());
+		}
+	}
+	else if (connection->getDriver() == "QSQLITE")
+	{
+		ui->comboDriver->setCurrentText("SQLite");
+
+		ui->editHostname->setText(connection->getPath());
 	}
 
 	this->setWindowTitle("Edit Connection");
@@ -70,6 +106,55 @@ void NewConnection::resetNameColor(QString)
 
 void NewConnection::tryConnect()
 {
+	if (ui->comboDriver->currentText() == "SQLite")
+	{
+		QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "testConnection");
+		db.setDatabaseName(ui->editHostname->text());
+
+		if (db.open())
+		{
+			db = QSqlDatabase();
+			QSqlDatabase::removeDatabase("testConnection");
+
+			if (ui->editName->styleSheet() == "color: #ff0000;")
+			{
+				ui->textError->setStyleSheet("color: #ff0000;");
+				ui->textError->setText("Invalid connection name");
+
+				return;
+			}
+
+			Connection* connection = new Connection();
+			connection->setName(ui->editName->text());
+			connection->setDriver("QSQLITE");
+			connection->setPath(ui->editHostname->text());
+
+			if (!connection->isValid())
+			{
+				ui->textError->setStyleSheet("color: #ff0000;");
+				ui->textError->setText("Some values are wrong");
+
+				return;
+			}
+
+			connection->save();
+
+			this->close();
+		}
+		else
+		{
+			QSqlError err = db.lastError();
+
+			ui->textError->setStyleSheet("color: #ff0000;");
+			ui->textError->setText(err.databaseText());
+
+			db = QSqlDatabase();
+			QSqlDatabase::removeDatabase("testConnection");
+		}
+
+		return;
+	}
+
 	if (ui->editHostname->text().isEmpty())
 	{
 		ui->editHostname->setText(ui->editHostname->placeholderText());
@@ -144,7 +229,6 @@ void NewConnection::tryConnect()
 		ui->textError->setStyleSheet("color: #ff0000;");
 		ui->textError->setText(err.databaseText());
 
-		db.close();
 		db = QSqlDatabase();
 		QSqlDatabase::removeDatabase("testConnection");
 	}
@@ -196,6 +280,61 @@ void NewConnection::checkName()
 	{
 		resetNameColor(NULL);
 	}
+}
+
+void NewConnection::checkFile(QString)
+{
+	if (ui->comboDriver->currentText() != "SQLite")
+	{
+		return;
+	}
+
+	if (QFile(ui->editHostname->text()).exists())
+	{
+		ui->editHostname->setStyleSheet("color: #00dd00;");
+	}
+	else
+	{
+		ui->editHostname->setStyleSheet("color: #ff0000;");
+	}
+
+	if (ui->editHostname->text().length() == 0)
+	{
+		resetHostColor(NULL);
+	}
+}
+
+void NewConnection::changeDriver(QString driver)
+{
+	if (driver == "SQLite")
+	{
+		ui->editPassword->setDisabled(true);
+		ui->editPort->setDisabled(true);
+		ui->editUsername->setDisabled(true);
+		ui->checkPassword->setDisabled(true);
+
+		ui->buttonBrowse->setDisabled(false);
+
+		ui->labelHostname->setText("Path: ");
+		ui->editHostname->setPlaceholderText("database.db");
+	}
+	else
+	{
+		ui->editPassword->setDisabled(false);
+		ui->editPort->setDisabled(false);
+		ui->editUsername->setDisabled(false);
+		ui->checkPassword->setDisabled(false);
+
+		ui->buttonBrowse->setDisabled(true);
+
+		ui->labelHostname->setText("Hostname: ");
+		ui->editHostname->setPlaceholderText("127.0.0.1");
+	}
+}
+
+void NewConnection::browseFile(bool)
+{
+	ui->editHostname->setText(QFileDialog::getOpenFileName(this, "Open database...", QDir().homePath(), "Database files (*.db *.sqlite);;All files (*)"));
 }
 
 NewConnection::~NewConnection()

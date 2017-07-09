@@ -4,6 +4,7 @@
 #include <QCalendarWidget>
 #include <QComboBox>
 #include <QDateTimeEdit>
+#include <QDir>
 #include <QLineEdit>
 #include <QSignalMapper>
 #include <QDoubleSpinBox>
@@ -16,6 +17,7 @@
 #include <QThread>
 
 #include "src/dialogs/Password.hpp"
+#include "src/Query.hpp"
 #include "src/widgets/FlatComboBox.hpp"
 #include "src/widgets/LongSpinBox.hpp"
 
@@ -41,19 +43,27 @@ void ConnectionTab::setConnectionData(Connection* connection)
 	}
 
 	db = QSqlDatabase::addDatabase(connectionData->getDriver(), connectionData->getName());
-	db.setHostName(connectionData->getHost().host());
-	db.setPort(connectionData->getHost().port());
-	db.setUserName(connectionData->getUsername());
 
 	driver = connectionData->getDriver();
 
-	if (!connectionData->getPassword().isNull())
+	if (connectionData->getDriver() != "QSQLITE")
 	{
-		db.setPassword(connectionData->getPassword());
+		db.setHostName(connectionData->getHost().host());
+		db.setPort(connectionData->getHost().port());
+		db.setUserName(connectionData->getUsername());
+
+		if (!connectionData->getPassword().isNull())
+		{
+			db.setPassword(connectionData->getPassword());
+		}
+		else
+		{
+			requestPassword();
+		}
 	}
 	else
 	{
-		requestPassword();
+		db.setDatabaseName(connection->getPath());
 	}
 }
 
@@ -61,16 +71,11 @@ void ConnectionTab::loadDatabases()
 {
 	if (db.open())
 	{
-		if (driver == "QMYSQL")
-		{
-			QSqlQuery query(db);
-			query.prepare("SELECT `SCHEMA_NAME` FROM `information_schema`.`SCHEMATA`");
-			query.exec();
+		QStringList databases = Query::listDatabases(&db, driver);
 
-			while (query.next())
-			{
-				ui->listDatabases->addItem(query.value(0).toString());
-			}
+		for (int i = 0; i < databases.length(); i++)
+		{
+			ui->listDatabases->addItem(databases[i]);
 		}
 
 		db.close();
@@ -108,18 +113,11 @@ void ConnectionTab::loadTables(QModelIndex index)
 
 		databaseName = index.data().toString();
 
-		if (driver == "QMYSQL")
+		QStringList tables = Query::listTables(&db, driver, databaseName);
+
+		for (int i = 0; i < tables.length(); i++)
 		{
-			db.setDatabaseName(databaseName);
-
-			QSqlQuery query(db);
-			query.prepare("SELECT `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`='" + databaseName + "';");
-			query.exec();
-
-			while (query.next())
-			{
-				ui->listTables->addItem(query.value(0).toString());
-			}
+			ui->listTables->addItem(tables[i]);
 		}
 
 		db.close();
@@ -137,11 +135,12 @@ void ConnectionTab::openTable(QModelIndex index)
 	{
 		tableName = index.data().toString();
 
+		QSqlQuery query(db);
+		QSignalMapper* mapper = new QSignalMapper();
+
 		if (driver == "QMYSQL")
 		{
-			QSqlQuery query(db);
-
-			query.prepare("SELECT `COLUMN_NAME`,`DATA_TYPE` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "';");
+			query.prepare("SELECT `COLUMN_NAME`,`DATA_TYPE` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`='" + databaseName + "' AND `TABLE_NAME`='" + tableName + "';");
 			query.exec();
 
 			QStringList header;
@@ -154,7 +153,7 @@ void ConnectionTab::openTable(QModelIndex index)
 			ui->tableValues->setColumnCount(header.length());
 			ui->tableValues->setHorizontalHeaderLabels(header);
 
-			query.prepare("SELECT `ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
+			query.prepare("SELECT `ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + databaseName + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
 			query.exec();
 
 			while (query.next())
@@ -166,8 +165,6 @@ void ConnectionTab::openTable(QModelIndex index)
 
 			query.prepare("SELECT * FROM `" + tableName + "`");
 			query.exec();
-
-			QSignalMapper* mapper = new QSignalMapper();
 
 			while (query.next())
 			{
@@ -191,11 +188,11 @@ void ConnectionTab::openTable(QModelIndex index)
 					handleType(ui->tableValues->rowCount() - 1, i);
 				}
 			}
-
-			connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
-
-			ui->tableValues->resizeColumnsToContents();
 		}
+
+		connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
+
+		ui->tableValues->resizeColumnsToContents();
 
 		db.close();
 	}

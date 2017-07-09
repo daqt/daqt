@@ -28,6 +28,9 @@ public:
 	QString getDriver();
 	void setDriver(QString driver);
 
+	QString getPath();
+	void setPath(QString path);
+
 	bool isValid();
 
 	bool load();
@@ -39,6 +42,7 @@ private:
 	QString username;
 	QString password;
 	QString driver;
+	QString path;
 };
 
 #endif // CONNECTION_HPP
