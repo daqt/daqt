@@ -53,6 +53,10 @@ NewConnection::NewConnection(QWidget* parent) :
 			{
 				ui->comboDriver->addItem("SQLite");
 			}
+			else if (drivers[i] == "QPSQL")
+			{
+				ui->comboDriver->addItem("PostgreSQL");
+			}
 		}
 	}
 
@@ -63,15 +67,22 @@ void NewConnection::setValues(Connection* connection)
 {
 	ui->editName->setText(connection->getName());
 
-	if (connection->getDriver() == "QMYSQL")
+	if (connection->getDriver() == "QMYSQL" || connection->getDriver() == "QPSQL")
 	{
-		ui->comboDriver->setCurrentText("MySQL");
+		if (connection->getDriver() == "QMYSQL")
+		{
+			ui->comboDriver->setCurrentText("MySQL");
+		}
+		else if (connection->getDriver() == "QPSQL")
+		{
+			ui->comboDriver->setCurrentText("PostgreSQL");
+		}
 
 		ui->editHostname->setText(connection->getHost().host());
 		ui->editPort->setText(QString::number(connection->getHost().port()));
 		ui->editUsername->setText(connection->getUsername());
 
-		if (connection->getPassword().isEmpty())
+		if (connection->getPassword().isNull())
 		{
 			ui->checkPassword->setChecked(false);
 		}
@@ -168,11 +179,13 @@ void NewConnection::tryConnect()
 
 	QString driver = "QMYSQL";
 
-	switch (ui->comboDriver->currentIndex())
+	if (ui->comboDriver->currentText() == "MySQL")
 	{
-	case 0:
 		driver = "QMYSQL";
-		break;
+	}
+	else if (ui->comboDriver->currentText() == "PostgreSQL")
+	{
+		driver = "QPSQL";
 	}
 
 	QSqlDatabase db = QSqlDatabase::addDatabase(driver, "testConnection");
@@ -199,11 +212,7 @@ void NewConnection::tryConnect()
 		connection->setName(ui->editName->text());
 		connection->setHost(ui->editHostname->text(), ui->editPort->text().toInt());
 		connection->setUsername(ui->editUsername->text());
-
-		if (ui->comboDriver->currentText() == "MySQL")
-		{
-			connection->setDriver("QMYSQL");
-		}
+		connection->setDriver(driver);
 
 		if (ui->checkPassword->isChecked())
 		{
@@ -329,6 +338,17 @@ void NewConnection::changeDriver(QString driver)
 
 		ui->labelHostname->setText("Hostname: ");
 		ui->editHostname->setPlaceholderText("127.0.0.1");
+
+		if (driver == "MySQL")
+		{
+			ui->editPort->setPlaceholderText("3306");
+			ui->editPort->setText("3306");
+		}
+		else if (driver == "PostgreSQL")
+		{
+			ui->editPort->setPlaceholderText("5432");
+			ui->editPort->setText("5432");
+		}
 	}
 }
 

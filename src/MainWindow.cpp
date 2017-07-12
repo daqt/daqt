@@ -132,9 +132,16 @@ void MainWindow::loadConnections(int)
 		QList<QStandardItem*> data;
 		data.append(new QStandardItem(connection->getName()));
 
-		if (connection->getDriver() == "QMYSQL")
+		if (connection->getDriver() == "QMYSQL" || connection->getDriver() == "QPSQL")
 		{
-			data.append(new QStandardItem("MySQL"));
+			if (connection->getDriver() == "QMYSQL")
+			{
+				data.append(new QStandardItem("MySQL"));
+			}
+			else if (connection->getDriver() == "QPSQL")
+			{
+				data.append(new QStandardItem("PostgreSQL"));
+			}
 
 			data.append(new QStandardItem(connection->getHost().host() + ":" + QString::number(connection->getHost().port())));
 			data.append(new QStandardItem(connection->getUsername()));
