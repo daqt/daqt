@@ -48,6 +48,7 @@ public slots:
 	void changeValue(int row, int column);
 	void setPassword(QString password, bool save);
 	void open(int code);
+	void handleType(int row, int column);
 	void handleType(int row, int column, QVariant type);
 	void editFinished(QString data);
 };

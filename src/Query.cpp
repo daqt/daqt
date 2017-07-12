@@ -56,7 +56,7 @@ QStringList Query::listTables(QSqlDatabase* db, QString driver, QString database
 	return result;
 }
 
-QStringList Query::getHeader(QSqlDatabase *db, QString driver, QString database, QString table)
+QStringList Query::getHeader(QSqlDatabase* db, QString driver, QString database, QString table)
 {
 	QStringList result;
 	QSqlQuery query(*db);
@@ -129,7 +129,7 @@ QStringList Query::getHeader(QSqlDatabase *db, QString driver, QString database,
 	return result;
 }
 
-QStringList Query::getEnumValues(QSqlDatabase *db, QString driver, QString database, QString table, QString column)
+QStringList Query::getEnumValues(QSqlDatabase* db, QString driver, QString database, QString table, QString column)
 {
 	QStringList result;
 	QSqlQuery query(*db);
@@ -150,7 +150,7 @@ QStringList Query::getEnumValues(QSqlDatabase *db, QString driver, QString datab
 	return result;
 }
 
-QUERYRESULT Query::selectAll(QSqlDatabase *db, QString driver, QString database, QString table)
+QUERYRESULT Query::selectAll(QSqlDatabase* db, QString driver, QString database, QString table)
 {
 	QUERYRESULT result;
 	QSqlQuery query(*db);
@@ -179,4 +179,84 @@ QUERYRESULT Query::selectAll(QSqlDatabase *db, QString driver, QString database,
 	}
 
 	return result;
+}
+
+QVariant Query::getVariant(QSqlDatabase* db, QString driver, QString database, QString table, QString column)
+{
+	QSqlQuery query(*db);
+
+	if (driver == "QMYSQL")
+	{
+		query.prepare("SELECT `" + column + "` FROM `" + database + "`.`" + table + "`;");
+	}
+	else if (driver == "QSQLITE")
+	{
+		query.prepare("SELECT `" + column + "` FROM `" + table + "`;");
+	}
+
+	query.exec();
+	query.next();
+
+	return query.value(0);
+}
+
+bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* update, QMap<QString, QVariant>* conditions)
+{
+	QSqlQuery query(*db);
+	QString sql;
+
+	if (driver == "QMYSQL")
+	{
+		sql += "UPDATE `" + database + "`.`" + table + "` SET ";
+
+		for (int i = 0; i < update->size(); i++)
+		{
+			sql += "`" + update->keys()[i] + "`=?, ";
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += " WHERE ";
+
+		for (int i = 0; i < conditions->size(); i++)
+		{
+			sql += "`" + conditions->keys()[i] + "`=? AND ";
+		}
+
+		sql = sql.remove(sql.length() - 5, 5);
+		sql += ";";
+	}
+	else if (driver == "QSQLITE")
+	{
+		sql += "UPDATE `" + table + "` SET ";
+
+		for (int i = 0; i < update->size(); i++)
+		{
+			sql += "`" + update->keys()[i] + "`=?, ";
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += " WHERE ";
+
+		for (int i = 0; i < conditions->size(); i++)
+		{
+			sql += "`" + conditions->keys()[i] + "`=? AND ";
+		}
+
+		sql = sql.remove(sql.length() - 5, 5);
+		sql += ";";
+	}
+
+	query.prepare(sql);
+
+	for (int i = 0; i < update->size(); i++)
+	{
+		query.addBindValue(update->values()[i]);
+	}
+
+	for (int i = 0; i < conditions->size(); i++)
+	{
+		query.addBindValue(conditions->values()[i]);
+	}
+
+	return query.exec();
 }

@@ -194,31 +194,14 @@ void ConnectionTab::openTable(QModelIndex index)
 
 void ConnectionTab::changeValue(int row, int column)
 {
-	if (db.open())
+	if (qobject_cast<QLineEdit*>(ui->tableValues->cellWidget(row, column)) != NULL)
 	{
-		QString primary = "id";
-		int primaryIndex = 0;
+		QString str;
+		str += QString::number(row);
+		str += ",";
+		str += QString::number(column);
 
-		if (driver == "QMYSQL")
-		{
-			QSqlQuery query(db);
-
-			query.prepare("SELECT `COLUMN_NAME`,`ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
-			query.exec();
-			query.next();
-
-			primary = query.value(0).toString();
-			primaryIndex = query.value(1).toInt() - 1;
-
-			QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
-			QString primaryVal = ui->tableValues->item(row, primaryIndex)->text();
-
-			query.prepare("UPDATE `" + tableName + "` SET `" + columnName + "`=? WHERE `" + primary + "`='" + primaryVal + "'");
-			query.addBindValue(ui->tableValues->item(row, column)->text());
-			query.exec();
-		}
-
-		db.close();
+		editFinished(str);
 	}
 }
 
@@ -278,6 +261,22 @@ void ConnectionTab::open(int code)
 	}
 }
 
+void ConnectionTab::handleType(int row, int column)
+{
+	QVariant variant;
+
+	if (db.open())
+	{
+		QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(" ")[0];
+
+		variant = Query::getVariant(&db, driver, databaseName, tableName, columnName);
+
+		db.close();
+	}
+
+	handleType(row, column, variant);
+}
+
 void ConnectionTab::handleType(int row, int column, QVariant type)
 {
 	QSignalMapper* mapper = new QSignalMapper();
@@ -297,7 +296,12 @@ void ConnectionTab::handleType(int row, int column, QVariant type)
 			edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
 		}
 
-		edit->addItems(Query::getEnumValues(&db, driver, databaseName, tableName, columnName));
+		if (db.open())
+		{
+			edit->addItems(Query::getEnumValues(&db, driver, databaseName, tableName, columnName));
+
+			db.close();
+		}
 
 		QString str;
 		str += QString::number(row);
@@ -429,94 +433,74 @@ void ConnectionTab::handleType(int row, int column, QVariant type)
 
 void ConnectionTab::editFinished(QString data)
 {
-	int row = QString(data.split(",")[0]).toInt();
-	int column = QString(data.split(",")[1]).toInt();
-
 	if (db.open())
 	{
+		int row = QString(data.split(",")[0]).toInt();
+		int column = QString(data.split(",")[1]).toInt();
+
 		QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
-		QString primary = "id";
-		int primaryIndex = 0;
+		QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
+		QVariant type = Query::getVariant(&db, driver, databaseName, tableName, columnName);
 
-		if (driver == "QMYSQL")
+		QMap<QString, QVariant>* conditions = new QMap<QString, QVariant>();
+
+		for (int i = 0; i < ui->tableValues->horizontalHeader()->count(); i++)
 		{
-			QSqlQuery query(db);
-
-			query.prepare("SELECT `" + columnName + "` FROM `" + tableName + "` LIMIT 1");
-			query.exec();
-			query.next();
-
-			QVariant type = query.record().field(columnName).type();
-
-			query.prepare("SELECT `COLUMN_NAME`,`ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + db.databaseName() + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
-			query.exec();
-			query.next();
-
-			primary = query.value(0).toString();
-			primaryIndex = query.value(1).toInt() - 1;
-
-			QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
-			QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
-			QString primaryVal = ui->tableValues->item(row, primaryIndex)->text();
-
-			query.prepare("UPDATE `" + tableName + "` SET `" + columnName + "`=? WHERE `" + primary + "`='" + primaryVal + "'");
-
-			if (columnType == "enum")
+			if (i != column)
 			{
-				FlatComboBox* edit = qobject_cast<FlatComboBox*>(ui->tableValues->cellWidget(row, column));
-
-				ui->tableValues->item(row, column)->setText(edit->currentText());
-
-				query.addBindValue(edit->currentText());
+				conditions->insert(ui->tableValues->horizontalHeaderItem(i)->text().split(' ')[0], Query::getVariant(&db, driver, databaseName, tableName, ui->tableValues->horizontalHeaderItem(i)->text().split(' ')[0]));
 			}
-
-			switch (type.type())
-			{
-			case type.DateTime:
-			{
-				QDateTimeEdit* edit = qobject_cast<QDateTimeEdit*>(ui->tableValues->cellWidget(row, column));
-
-				query.addBindValue(edit->dateTime().toString(Qt::ISODate));
-				break;
-			}
-			case type.Double:
-			{
-				QDoubleSpinBox* edit = qobject_cast<QDoubleSpinBox*>(ui->tableValues->cellWidget(row, column));
-
-				query.addBindValue(edit->text());
-				break;
-			}
-			case type.Int:
-			case type.UInt:
-			case type.LongLong:
-			case type.ULongLong:
-			{
-				LongSpinBox* edit = qobject_cast<LongSpinBox*>(ui->tableValues->cellWidget(row, column));
-
-				if (type.type() == type.Int)
-				{
-					query.addBindValue(edit->text().toInt());
-				}
-				else if (type.type() == type.UInt)
-				{
-					query.addBindValue(edit->text().toUInt());
-				}
-				else if (type.type() == type.LongLong)
-				{
-					query.addBindValue(edit->text().toLongLong());
-				}
-				else if (type.type() == type.ULongLong)
-				{
-					query.addBindValue(edit->text().toULongLong());
-				}
-				break;
-			}
-			default:
-				break;
-			}
-
-			query.exec();
 		}
+
+		QMap<QString, QVariant>* values = new QMap<QString, QVariant>();
+
+		if (columnType == "enum")
+		{
+			FlatComboBox* edit = qobject_cast<FlatComboBox*>(ui->tableValues->cellWidget(row, column));
+
+			ui->tableValues->item(row, column)->setText(edit->currentText());
+
+			values->insert(columnName, QVariant(edit->currentText()));
+		}
+
+		switch (type.type())
+		{
+		case type.DateTime:
+		{
+			QDateTimeEdit* edit = qobject_cast<QDateTimeEdit*>(ui->tableValues->cellWidget(row, column));
+
+			values->insert(columnName, QVariant(edit->dateTime().toString(Qt::ISODate)));
+			break;
+		}
+		case type.Double:
+		{
+			QDoubleSpinBox* edit = qobject_cast<QDoubleSpinBox*>(ui->tableValues->cellWidget(row, column));
+
+			values->insert(columnName, QVariant(edit->text()));
+			break;
+		}
+		case type.Int:
+		case type.UInt:
+		case type.LongLong:
+		case type.ULongLong:
+		{
+			LongSpinBox* edit = qobject_cast<LongSpinBox*>(ui->tableValues->cellWidget(row, column));
+
+			values->insert(columnName, QVariant(edit->text()));
+			break;
+		}
+		default:
+			break;
+		}
+
+		if (values->size() == 0)
+		{
+			values->insert(columnName, QVariant(ui->tableValues->item(row, column)->text()));
+		}
+
+		Query::updateTable(&db, driver, databaseName, tableName, values, conditions);
+
+		db.close();
 	}
 }
 
