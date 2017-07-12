@@ -135,67 +135,59 @@ void ConnectionTab::openTable(QModelIndex index)
 	{
 		tableName = index.data().toString();
 
-		QSqlQuery query(db);
-		QSignalMapper* mapper = new QSignalMapper();
+		QStringList header = Query::getHeader(&db, driver, databaseName, tableName);
 
-		if (driver == "QMYSQL")
+		ui->tableValues->setColumnCount(header.length());
+		ui->tableValues->setHorizontalHeaderLabels(header);
+
+		for (int i = 0; i < ui->tableValues->horizontalHeader()->count(); i++)
 		{
-			query.prepare("SELECT `COLUMN_NAME`,`DATA_TYPE` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`='" + databaseName + "' AND `TABLE_NAME`='" + tableName + "';");
-			query.exec();
-
-			QStringList header;
-
-			while (query.next())
+			if (ui->tableValues->horizontalHeaderItem(i)->text().endsWith(" P)"))
 			{
-				header.append(query.value(0).toString() + " (" + query.value(1).toString() + ")");
-			}
-
-			ui->tableValues->setColumnCount(header.length());
-			ui->tableValues->setHorizontalHeaderLabels(header);
-
-			query.prepare("SELECT `ORDINAL_POSITION` FROM `information_schema`.`KEY_COLUMN_USAGE` WHERE `TABLE_SCHEMA`='" + databaseName + "' AND `TABLE_NAME`='" + tableName + "' AND `CONSTRAINT_NAME`='PRIMARY';");
-			query.exec();
-
-			while (query.next())
-			{
-				QTableWidgetItem* primary = ui->tableValues->horizontalHeaderItem(query.value(0).toInt() - 1);
+				QTableWidgetItem* primary = ui->tableValues->horizontalHeaderItem(i);
 				primary->setTextColor(QColor().fromRgb(0xDD, 0xDD, 0x00));
-				ui->tableValues->setHorizontalHeaderItem(query.value(0).toInt() - 1, primary);
+				ui->tableValues->setHorizontalHeaderItem(i,  primary);
 			}
-
-			query.prepare("SELECT * FROM `" + tableName + "`");
-			query.exec();
-
-			while (query.next())
+			else //Required since colors are not reset
 			{
-				ui->tableValues->insertRow(ui->tableValues->rowCount());
+				QTableWidgetItem* notPrimary = ui->tableValues->horizontalHeaderItem(i);
+				notPrimary->setTextColor(QPalette().foreground().color());
+				ui->tableValues->setHorizontalHeaderItem(i, notPrimary);
+			}
+		}
 
-				for (int i = 0; i < query.record().count(); i++)
+		QSignalMapper* mapper = new QSignalMapper();
+		QUERYRESULT all = Query::selectAll(&db, driver, databaseName, tableName);
+
+		for (int y = 0; y < all.length(); y++)
+		{
+			ui->tableValues->insertRow(ui->tableValues->rowCount());
+
+			for (int x = 0; x < all[y].length(); x++)
+			{
+				ui->tableValues->setItem(ui->tableValues->rowCount() - 1, x, new QTableWidgetItem(all[y][x].toString()));
+
+				if (all[y][x].toString().isEmpty())
 				{
-					ui->tableValues->setItem(ui->tableValues->rowCount() - 1, i, new QTableWidgetItem(query.value(i).toString()));
+					ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->setText("NULL");
 
-					if (query.value(i).toString().isEmpty())
-					{
-						ui->tableValues->item(ui->tableValues->rowCount() - 1, i)->setText("NULL");
+					QFont font = QFont(ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->font());
+					font.setItalic(true);
+					ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->setFont(font);
 
-						QFont font = QFont(ui->tableValues->item(ui->tableValues->rowCount() - 1, i)->font());
-						font.setItalic(true);
-						ui->tableValues->item(ui->tableValues->rowCount() - 1, i)->setFont(font);
-
-						continue;
-					}
-
-					handleType(ui->tableValues->rowCount() - 1, i);
+					continue;
 				}
+
+				handleType(ui->tableValues->rowCount() - 1, x, all[y][x]);
 			}
 		}
 
 		connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
 
-		ui->tableValues->resizeColumnsToContents();
-
 		db.close();
 	}
+
+	ui->tableValues->resizeColumnsToContents();
 
 	ui->tableValues->blockSignals(false);
 }
@@ -286,186 +278,153 @@ void ConnectionTab::open(int code)
 	}
 }
 
-void ConnectionTab::handleType(int row, int column)
+void ConnectionTab::handleType(int row, int column, QVariant type)
 {
-	if (db.open())
+	QSignalMapper* mapper = new QSignalMapper();
+
+	QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split("(")[0];
+	QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split("(")[1]);
+	columnType = columnType.remove(columnType.length() - 1, 1);
+	columnType = columnType.split(" ")[0];
+
+	if (columnType == "enum")
 	{
-		QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
-		QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
+		FlatComboBox* edit = new FlatComboBox(ui->tableValues);
 
-		QSignalMapper* mapper = new QSignalMapper();
-
-		if (driver == "QMYSQL")
+		if (row % 2 == 1)
 		{
-			QSqlQuery query(db);
-
-			query.prepare("SELECT `" + columnName + "` FROM `" + tableName + "` LIMIT 1");
-			query.exec();
-			query.next();
-
-			QVariant type = query.record().field(columnName).type();
-
-			query.prepare("SELECT * FROM `" + tableName + "`");
-			query.exec();
-
-			query.seek(row);
-
-			if (columnType == "enum")
-			{
-				FlatComboBox* edit = new FlatComboBox(ui->tableValues);
-
-				if (row % 2 == 1)
-				{
-					QColor background = QPalette().alternateBase().color();
-					edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
-				}
-
-				QString current = query.value(column).toString();
-
-				query.prepare("SELECT `COLUMN_TYPE` FROM `information_schema`.`COLUMNS` WHERE `COLUMN_NAME`='" + columnName + "' AND `TABLE_NAME`='" + tableName + "' AND `TABLE_SCHEMA`='" + databaseName + "'");
-				query.exec();
-				query.next();
-
-				QString val = query.value(0).toString();
-				val = val.remove(val.length() - 1, 1).remove(0, columnType.length() + 1).replace("\'", "");
-
-				QStringList enumParts = val.split(',');
-
-				edit->addItems(enumParts);
-
-				edit->setCurrentText(current);
-
-				QString str;
-				str += QString::number(row);
-				str += ",";
-				str += QString::number(column);
-
-				connect(edit, SIGNAL(currentIndexChanged(int)), mapper, SLOT(map()));
-				mapper->setMapping(edit, str);
-
-				ui->tableValues->setCellWidget(row, column, edit);
-			}
-
-			switch (type.type())
-			{
-			case type.DateTime:
-			{
-				QDateTimeEdit* edit = new QDateTimeEdit(ui->tableValues);
-				QCalendarWidget* calendar = new QCalendarWidget(edit);
-
-				calendar->setGridVisible(true);
-
-				if (row % 2 == 1)
-				{
-					QColor background = QPalette().alternateBase().color();
-					edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
-				}
-
-				edit->setCalendarPopup(true);
-				edit->setCalendarWidget(calendar);
-
-				if (query.value(column).toString().isEmpty())
-				{
-					edit->setDateTime(QDateTime().currentDateTime());
-				}
-				else
-				{
-					edit->setDateTime(query.value(column).toDateTime());
-				}
-
-				QString str;
-				str += QString::number(row);
-				str += ",";
-				str += QString::number(column);
-
-				connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
-				mapper->setMapping(edit, str);
-
-				ui->tableValues->setCellWidget(row, column, edit);
-				break;
-			}
-			case type.Double:
-			{
-				QDoubleSpinBox* edit = new QDoubleSpinBox(ui->tableValues);
-
-				if (row % 2 == 1)
-				{
-					QColor background = QPalette().alternateBase().color();
-					edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
-				}
-
-				edit->setValue(query.value(column).toDouble());
-
-				QString str;
-				str += QString::number(row);
-				str += ",";
-				str += QString::number(column);
-
-				connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
-				mapper->setMapping(edit, str);
-
-				ui->tableValues->setCellWidget(row, column, edit);
-				break;
-			}
-			case type.UInt:
-			case type.Int:
-			case type.LongLong:
-			case type.ULongLong:
-			{
-				LongSpinBox* edit = new LongSpinBox(ui->tableValues);
-
-				if (row % 2 == 1)
-				{
-					QColor background = QPalette().alternateBase().color();
-					edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
-				}
-
-				if (type.type() == type.Int)
-				{
-					edit->setMaximum(INT_MAX);
-					edit->setMinimum(INT_MIN);
-					edit->setValue(query.value(column).toInt());
-				}
-				else if (type.type() == type.UInt)
-				{
-					edit->setMaximum(UINT_MAX);
-					edit->setMinimum(0);
-					edit->setValue(query.value(column).toUInt());
-				}
-				else if (type.type() == type.LongLong)
-				{
-					edit->setMaximum(LONG_LONG_MAX);
-					edit->setMinimum(LONG_LONG_MIN);
-					edit->setValue(query.value(column).toLongLong());
-				}
-				else if (type.type() == type.ULongLong) //Not supported yet
-				{
-					edit->setMaximum(LONG_LONG_MAX);
-					edit->setMinimum(0);
-					edit->setValue(query.value(column).toULongLong());
-				}
-
-				QString str;
-				str += QString::number(row);
-				str += ",";
-				str += QString::number(column);
-
-				connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
-				mapper->setMapping(edit, str);
-
-				ui->tableValues->setCellWidget(row, column, edit);
-
-				break;
-			}
-			default:
-				break;
-			}
-
-			connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
+			QColor background = QPalette().alternateBase().color();
+			edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
 		}
 
-		db.close();
+		edit->addItems(Query::getEnumValues(&db, driver, databaseName, tableName, columnName));
+
+		QString str;
+		str += QString::number(row);
+		str += ",";
+		str += QString::number(column);
+
+		connect(edit, SIGNAL(currentIndexChanged(int)), mapper, SLOT(map()));
+		mapper->setMapping(edit, str);
+
+		ui->tableValues->setCellWidget(row, column, edit);
 	}
+
+	switch (type.type())
+	{
+	case type.DateTime:
+	{
+		QDateTimeEdit* edit = new QDateTimeEdit(ui->tableValues);
+		QCalendarWidget* calendar = new QCalendarWidget(edit);
+
+		calendar->setGridVisible(true);
+
+		if (row % 2 == 1)
+		{
+			QColor background = QPalette().alternateBase().color();
+			edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
+		}
+
+		edit->setCalendarPopup(true);
+		edit->setCalendarWidget(calendar);
+
+		if (type.toString().isEmpty())
+		{
+			edit->setDateTime(QDateTime().currentDateTime());
+		}
+		else
+		{
+			edit->setDateTime(type.toDateTime());
+		}
+
+		QString str;
+		str += QString::number(row);
+		str += ",";
+		str += QString::number(column);
+
+		connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
+		mapper->setMapping(edit, str);
+
+		ui->tableValues->setCellWidget(row, column, edit);
+		break;
+	}
+	case type.Double:
+	{
+		QDoubleSpinBox* edit = new QDoubleSpinBox(ui->tableValues);
+
+		if (row % 2 == 1)
+		{
+			QColor background = QPalette().alternateBase().color();
+			edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
+		}
+
+		edit->setValue(type.toDouble());
+
+		QString str;
+		str += QString::number(row);
+		str += ",";
+		str += QString::number(column);
+
+		connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
+		mapper->setMapping(edit, str);
+
+		ui->tableValues->setCellWidget(row, column, edit);
+		break;
+	}
+	case type.UInt:
+	case type.Int:
+	case type.LongLong:
+	case type.ULongLong:
+	{
+		LongSpinBox* edit = new LongSpinBox(ui->tableValues);
+
+		if (row % 2 == 1)
+		{
+			QColor background = QPalette().alternateBase().color();
+			edit->setStyleSheet("background-color: rgb(" + QString::number(background.red()) + "," + QString::number(background.green()) + "," + QString::number(background.blue()) + ")");
+		}
+
+		if (type.type() == type.Int)
+		{
+			edit->setMaximum(INT_MAX);
+			edit->setMinimum(INT_MIN);
+			edit->setValue(type.toInt());
+		}
+		else if (type.type() == type.UInt)
+		{
+			edit->setMaximum(UINT_MAX);
+			edit->setMinimum(0);
+			edit->setValue(type.toUInt());
+		}
+		else if (type.type() == type.LongLong)
+		{
+			edit->setMaximum(LONG_LONG_MAX);
+			edit->setMinimum(LONG_LONG_MIN);
+			edit->setValue(type.toLongLong());
+		}
+		else if (type.type() == type.ULongLong) //Not supported yet
+		{
+			edit->setMaximum(LONG_LONG_MAX);
+			edit->setMinimum(0);
+			edit->setValue(type.toULongLong());
+		}
+
+		QString str;
+		str += QString::number(row);
+		str += ",";
+		str += QString::number(column);
+
+		connect(edit, SIGNAL(editingFinished()), mapper, SLOT(map()));
+		mapper->setMapping(edit, str);
+
+		ui->tableValues->setCellWidget(row, column, edit);
+		break;
+	}
+	default:
+		break;
+	}
+
+	connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
 }
 
 void ConnectionTab::editFinished(QString data)
