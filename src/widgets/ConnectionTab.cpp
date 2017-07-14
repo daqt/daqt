@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
+#include <QtMath>
 #include <QScrollBar>
 #include <QSignalMapper>
 #include <QSqlDriver>
@@ -32,6 +33,12 @@ ConnectionTab::ConnectionTab(QWidget* parent) :
 	connect(ui->listTables, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(openTable(QModelIndex)));
 	connect(ui->tableValues, SIGNAL(cellChanged(int, int)), this, SLOT(changeValue(int, int)));
 	connect(ui->tableValues, SIGNAL(cellDoubleClicked(int,int)), this, SLOT(handleType(int, int)));
+
+	connect(ui->buttonNext, SIGNAL(pressed()), ui->spinPage, SLOT(stepUp()));
+	connect(ui->buttonPrevious, SIGNAL(pressed()), ui->spinPage, SLOT(stepDown()));
+	connect(ui->spinPage, SIGNAL(valueChanged(int)), this, SLOT(goPage(int)));
+
+	goPage(0);
 }
 
 void ConnectionTab::setConnectionData(Connection* connection)
@@ -112,6 +119,8 @@ void ConnectionTab::loadTables(QModelIndex index)
 {
 	if (db.open())
 	{
+		goPage(0);
+
 		ui->listTables->clear();
 		ui->listTables->verticalScrollBar()->setValue(0);
 
@@ -181,7 +190,7 @@ void ConnectionTab::openTable(QModelIndex index)
 		}
 
 		QSignalMapper* mapper = new QSignalMapper();
-		QUERYRESULT all = Query::selectAll(&db, driver, databaseName, tableName);
+		QUERYRESULT all = Query::selectAll(&db, driver, databaseName, tableName, 1);
 
 		for (int y = 0; y < all.length(); y++)
 		{
@@ -207,6 +216,18 @@ void ConnectionTab::openTable(QModelIndex index)
 		}
 
 		connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
+
+		int max = ceil(Query::getRows(&db, driver, databaseName, tableName) / 50);
+
+		if (max == 0)
+		{
+			max = 1;
+		}
+
+		ui->spinPage->setMaximum(max);
+		ui->spinPage->setSuffix("/" + QString::number(max));
+
+		goPage(1);
 
 		db.close();
 	}
@@ -525,6 +546,81 @@ void ConnectionTab::editFinished(QString data)
 		Query::updateTable(&db, driver, databaseName, tableName, values, conditions);
 
 		db.close();
+	}
+}
+
+void ConnectionTab::goPage(int page)
+{
+	if (page > 0)
+	{
+		ui->spinPage->setValue(page);
+		ui->spinPage->setMinimum(1);
+
+		ui->tableValues->setRowCount(0);
+		ui->tableValues->clearContents();
+		ui->tableValues->verticalScrollBar()->setValue(0);
+
+		if (db.open())
+		{
+			QSignalMapper* mapper = new QSignalMapper();
+			QUERYRESULT all = Query::selectAll(&db, driver, databaseName, tableName, page);
+
+			for (int y = 0; y < all.length(); y++)
+			{
+				ui->tableValues->insertRow(ui->tableValues->rowCount());
+
+				for (int x = 0; x < all[y].length(); x++)
+				{
+					ui->tableValues->setItem(ui->tableValues->rowCount() - 1, x, new QTableWidgetItem(all[y][x].toString()));
+
+					if (all[y][x].toString().isEmpty())
+					{
+						ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->setText("NULL");
+
+						QFont font = QFont(ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->font());
+						font.setItalic(true);
+						ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->setFont(font);
+
+						continue;
+					}
+
+					handleType(ui->tableValues->rowCount() - 1, x, all[y][x]);
+				}
+			}
+
+			connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
+
+			db.close();
+		}
+	}
+	else
+	{
+		ui->spinPage->blockSignals(true);
+
+		ui->spinPage->setMinimum(0);
+		ui->spinPage->setValue(0);
+		ui->spinPage->setMaximum(0);
+		ui->spinPage->setSuffix("/0");
+
+		ui->spinPage->blockSignals(false);
+	}
+
+	if (page <= 1)
+	{
+		ui->buttonPrevious->setEnabled(false);
+	}
+	else
+	{
+		ui->buttonPrevious->setEnabled(true);
+	}
+
+	if (page >= ui->spinPage->maximum() || ui->spinPage->maximum() <= 1)
+	{
+		ui->buttonNext->setEnabled(false);
+	}
+	else
+	{
+		ui->buttonNext->setEnabled(true);
 	}
 }
 

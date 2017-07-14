@@ -17,9 +17,10 @@ public:
 	static QStringList getHeader(QSqlDatabase* db, QString driver, QString database, QString table);
 	static QStringList getEnumValues(QSqlDatabase* db, QString driver, QString database, QString table, QString column);
 
-	static QUERYRESULT selectAll(QSqlDatabase* db, QString driver, QString database, QString table);
+	static QUERYRESULT selectAll(QSqlDatabase* db, QString driver, QString database, QString table, int page);
 	static QVariant getVariant(QSqlDatabase* db, QString driver, QString database, QString table, QString column);
 	static bool updateTable(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* update, QMap<QString, QVariant>* conditions);
+	static int getRows(QSqlDatabase* db, QString driver, QString database, QString table);
 };
 
 #endif // QUERY_HPP

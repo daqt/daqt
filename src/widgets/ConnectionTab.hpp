@@ -51,6 +51,7 @@ public slots:
 	void handleType(int row, int column);
 	void handleType(int row, int column, QVariant type);
 	void editFinished(QString data);
+	void goPage(int page);
 };
 
 #endif // DATABASETAB_HPP

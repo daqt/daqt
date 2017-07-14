@@ -193,25 +193,25 @@ QStringList Query::getEnumValues(QSqlDatabase* db, QString driver, QString datab
 	return result;
 }
 
-QUERYRESULT Query::selectAll(QSqlDatabase* db, QString driver, QString database, QString table)
+QUERYRESULT Query::selectAll(QSqlDatabase* db, QString driver, QString database, QString table, int page)
 {
 	QUERYRESULT result;
 	QSqlQuery query(*db);
 
 	if (driver == "QMYSQL")
 	{
-		query.prepare("SELECT * FROM `" + database + "`.`" + table + "`;");
+		query.prepare("SELECT * FROM `" + database + "`.`" + table + "` LIMIT 50 OFFSET " + QString::number((page - 1) * 50) + ";");
 	}
 	else if (driver == "QSQLITE")
 	{
-		query.prepare("SELECT * FROM `" + table + "`;");
+		query.prepare("SELECT * FROM `" + table + "` LIMIT 50 OFFSET " + QString::number((page - 1) * 50) + ";");
 	}
 	else if (driver == "QPSQL")
 	{
 		QString tableSchema = table.split('.')[0];
 		QString tableName = table.split('.')[1];
 
-		query.prepare("SELECT * FROM \"" + tableSchema + "\".\"" + tableName + "\";");
+		query.prepare("SELECT * FROM \"" + tableSchema + "\".\"" + tableName + "\" LIMIT 50 OFFSET " + QString::number((page - 1) * 50) + ";");
 	}
 
 	query.exec();
@@ -339,4 +339,29 @@ bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QStr
 	}
 
 	return query.exec();
+}
+
+int Query::getRows(QSqlDatabase* db, QString driver, QString database, QString table)
+{
+	QSqlQuery query(*db);
+
+	if (driver == "QMYSQL")
+	{
+		query.prepare("SELECT * FROM `" + database + "`.`" + table + "`");
+	}
+	else if (driver == "QSQLITE")
+	{
+		query.prepare("SELECT * FROM `" + table + "`");
+	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		query.prepare("SELECT * FROM \"" + tableSchema + "\".\"" + tableName + "\";");
+	}
+
+	query.exec();
+
+	return query.size();
 }
