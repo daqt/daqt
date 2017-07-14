@@ -5,9 +5,10 @@
 #include <QComboBox>
 #include <QDateTimeEdit>
 #include <QDir>
-#include <QLineEdit>
-#include <QSignalMapper>
 #include <QDoubleSpinBox>
+#include <QLineEdit>
+#include <QScrollBar>
+#include <QSignalMapper>
 #include <QSqlDriver>
 #include <QSqlError>
 #include <QSqlField>
@@ -69,6 +70,8 @@ void ConnectionTab::setConnectionData(Connection* connection)
 
 void ConnectionTab::loadDatabases()
 {
+	ui->listDatabases->clear();
+
 	if (db.open())
 	{
 		QStringList databases = Query::listDatabases(&db, driver);
@@ -110,8 +113,26 @@ void ConnectionTab::loadTables(QModelIndex index)
 	if (db.open())
 	{
 		ui->listTables->clear();
+		ui->listTables->verticalScrollBar()->setValue(0);
+
+		ui->tableValues->setRowCount(0);
+		ui->tableValues->setColumnCount(0);
+		ui->tableValues->clearContents();
 
 		databaseName = index.data().toString();
+
+		if (driver != "QSQLITE")
+		{
+			if (driver == "QPSQL" && db.databaseName() != databaseName) //PostgreSQL needs you to doubleclick the database twice, this fixes it
+			{
+				db.setDatabaseName(databaseName);
+				loadTables(index);
+				ui->listTables->clear();
+				db.open();
+			}
+
+			db.setDatabaseName(databaseName);
+		}
 
 		QStringList tables = Query::listTables(&db, driver, databaseName);
 
@@ -129,7 +150,10 @@ void ConnectionTab::openTable(QModelIndex index)
 	ui->tableValues->blockSignals(true);
 
 	ui->tableValues->setRowCount(0);
+	ui->tableValues->setColumnCount(0);
 	ui->tableValues->clearContents();
+	ui->tableValues->horizontalScrollBar()->setValue(0);
+	ui->tableValues->verticalScrollBar()->setValue(0);
 
 	if (db.open())
 	{

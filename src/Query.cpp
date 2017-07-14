@@ -1,6 +1,7 @@
 #include "Query.hpp"
 
 #include <QDir>
+#include <QSqlError>
 #include <QSqlRecord>
 #include <QSqlQuery>
 
@@ -20,6 +21,10 @@ QStringList Query::listDatabases(QSqlDatabase* db, QString driver)
 	else if (driver == "QMYSQL")
 	{
 		query.prepare("SELECT `SCHEMA_NAME` FROM `information_schema`.`SCHEMATA`;");
+	}
+	else if (driver == "QPSQL")
+	{
+		query.prepare("SELECT \"datname\" FROM \"pg_database\" WHERE \"datistemplate\"=false;");
 	}
 
 	query.exec();
@@ -45,12 +50,23 @@ QStringList Query::listTables(QSqlDatabase* db, QString driver, QString database
 	{
 		query.prepare("SELECT `name` FROM `sqlite_master` WHERE `type`='table';");
 	}
+	else if (driver == "QPSQL")
+	{
+		query.prepare("SELECT \"table_schema\",\"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_catalog\"='" + database + "' AND \"table_type\"='BASE TABLE';");
+	}
 
 	query.exec();
 
 	while (query.next())
 	{
-		result.append(query.value(0).toString());
+		if (driver == "QPSQL")
+		{
+			result.append(query.value(0).toString() + "." + query.value(1).toString());
+		}
+		else
+		{
+			result.append(query.value(0).toString());
+		}
 	}
 
 	return result;
@@ -125,6 +141,32 @@ QStringList Query::getHeader(QSqlDatabase* db, QString driver, QString database,
 			result.append(colName + " (" + colType + ")");
 		}
 	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		query.prepare("SELECT \"column_name\",\"data_type\" FROM \"information_schema\".\"columns\" WHERE \"table_catalog\"='" + database + "' AND \"table_schema\"='" + tableSchema + "' AND \"table_name\"='" + tableName + "';");
+		query.exec();
+
+		while (query.next())
+		{
+			result.append(query.value(0).toString() + " (" + query.value(1).toString() + ")");
+		}
+
+		query.prepare("SELECT \"ordinal_position\" FROM \"information_schema\".\"key_column_usage\" WHERE \"table_catalog\"='" + database + "' AND \"table_schema\"='" + tableSchema + "' AND \"table_name\"='" + tableName + "' AND \"constraint_name\" LIKE '%_pkey';");
+		query.exec();
+
+		while (query.next())
+		{
+			QString primary = result.at(query.value(0).toInt());
+
+			primary = primary.remove(primary.length() - 1, 1);
+			primary += " P)";
+
+			result.replace(query.value(0).toInt(), primary);
+		}
+	}
 
 	return result;
 }
@@ -146,6 +188,7 @@ QStringList Query::getEnumValues(QSqlDatabase* db, QString driver, QString datab
 		result = val.split(',');
 	}
 	//Enums don't exist in SQLite
+	//And I don't understand the PostgreSQL enums...
 
 	return result;
 }
@@ -162,6 +205,13 @@ QUERYRESULT Query::selectAll(QSqlDatabase* db, QString driver, QString database,
 	else if (driver == "QSQLITE")
 	{
 		query.prepare("SELECT * FROM `" + table + "`;");
+	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		query.prepare("SELECT * FROM \"" + tableSchema + "\".\"" + tableName + "\";");
 	}
 
 	query.exec();
@@ -193,13 +243,20 @@ QVariant Query::getVariant(QSqlDatabase* db, QString driver, QString database, Q
 	{
 		query.prepare("SELECT `" + column + "` FROM `" + table + "`;");
 	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		query.prepare("SELECT \"" + column + "\" FROM \"" + tableSchema + "\".\"" + tableName + "\";");
+	}
 
 	query.exec();
 	query.next();
 
 	return query.value(0);
 }
-
+#include <QDebug>
 bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* update, QMap<QString, QVariant>* conditions)
 {
 	QSqlQuery query(*db);
@@ -240,6 +297,29 @@ bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QStr
 		for (int i = 0; i < conditions->size(); i++)
 		{
 			sql += "`" + conditions->keys()[i] + "`=? AND ";
+		}
+
+		sql = sql.remove(sql.length() - 5, 5);
+		sql += ";";
+	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		sql += "UPDATE \"" + tableSchema + "\".\"" + tableName + "\" SET ";
+
+		for (int i = 0; i < update->size(); i++)
+		{
+			sql += "\"" + update->keys()[i] + "\"=?, ";
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += " WHERE ";
+
+		for (int i = 0; i < conditions->size(); i++)
+		{
+			sql += "\"" + conditions->keys()[i] + "\"=? AND ";
 		}
 
 		sql = sql.remove(sql.length() - 5, 5);
