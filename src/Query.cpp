@@ -256,7 +256,7 @@ QVariant Query::getVariant(QSqlDatabase* db, QString driver, QString database, Q
 
 	return query.value(0);
 }
-#include <QDebug>
+
 bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* update, QMap<QString, QVariant>* conditions)
 {
 	QSqlQuery query(*db);
