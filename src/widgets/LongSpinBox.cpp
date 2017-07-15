@@ -37,6 +37,11 @@ void LongSpinBox::setValue(long long value)
 	lineEdit()->setText(QString::number(val));
 }
 
+long long LongSpinBox::value()
+{
+	return val;
+}
+
 void LongSpinBox::stepBy(int steps)
 {
 	setValue(val + steps);

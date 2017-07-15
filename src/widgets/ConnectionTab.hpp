@@ -38,6 +38,8 @@ private:
 	
 	void requestPassword();
 	void handleError();
+
+	QVariant getValue(int row, int column);
 	
 signals:
 	void finished();

@@ -231,7 +231,7 @@ QUERYRESULT Query::selectAll(QSqlDatabase* db, QString driver, QString database,
 	return result;
 }
 
-QVariant Query::getVariant(QSqlDatabase* db, QString driver, QString database, QString table, QString column)
+QVariant Query::getVariant(QSqlDatabase* db, QString driver, QString database, QString table, QString column, int row)
 {
 	QSqlQuery query(*db);
 
@@ -254,10 +254,15 @@ QVariant Query::getVariant(QSqlDatabase* db, QString driver, QString database, Q
 	query.exec();
 	query.next();
 
+	if (row >= 0)
+	{
+		query.seek(row);
+	}
+
 	return query.value(0);
 }
 
-bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* update, QMap<QString, QVariant>* conditions)
+bool Query::updateRow(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* update, QMap<QString, QVariant>* conditions)
 {
 	QSqlQuery query(*db);
 	QString sql;
@@ -276,7 +281,10 @@ bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QStr
 
 		for (int i = 0; i < conditions->size(); i++)
 		{
-			sql += "`" + conditions->keys()[i] + "`=? AND ";
+			if (!conditions->values()[i].isNull())
+			{
+				sql += "`" + conditions->keys()[i] + "`=? AND ";
+			}
 		}
 
 		sql = sql.remove(sql.length() - 5, 5);
@@ -296,7 +304,10 @@ bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QStr
 
 		for (int i = 0; i < conditions->size(); i++)
 		{
-			sql += "`" + conditions->keys()[i] + "`=? AND ";
+			if (!conditions->values()[i].isNull())
+			{
+				sql += "`" + conditions->keys()[i] + "`=? AND ";
+			}
 		}
 
 		sql = sql.remove(sql.length() - 5, 5);
@@ -319,7 +330,10 @@ bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QStr
 
 		for (int i = 0; i < conditions->size(); i++)
 		{
-			sql += "\"" + conditions->keys()[i] + "\"=? AND ";
+			if (!conditions->values()[i].isNull())
+			{
+				sql += "\"" + conditions->keys()[i] + "\"=? AND ";
+			}
 		}
 
 		sql = sql.remove(sql.length() - 5, 5);
@@ -335,7 +349,10 @@ bool Query::updateTable(QSqlDatabase* db, QString driver, QString database, QStr
 
 	for (int i = 0; i < conditions->size(); i++)
 	{
-		query.addBindValue(conditions->values()[i]);
+		if (!conditions->values()[i].isNull())
+		{
+			query.addBindValue(conditions->values()[i]);
+		}
 	}
 
 	return query.exec();

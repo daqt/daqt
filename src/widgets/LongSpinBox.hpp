@@ -15,6 +15,7 @@ public:
 	void setMinimum(long long minimum);
 
 	void setValue(long long value);
+	long long value();
 
 	void stepBy(int steps);
 

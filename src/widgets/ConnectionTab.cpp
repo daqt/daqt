@@ -287,6 +287,70 @@ void ConnectionTab::handleError()
 	}
 }
 
+QVariant ConnectionTab::getValue(int row, int column)
+{
+	QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
+	QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
+	QVariant type = Query::getVariant(&db, driver, databaseName, tableName, columnName);
+
+	if (columnType == "enum")
+	{
+		FlatComboBox* edit = qobject_cast<FlatComboBox*>(ui->tableValues->cellWidget(row, column));
+
+		ui->tableValues->item(row, column)->setText(edit->currentText());
+
+		return QVariant(edit->currentText());
+	}
+
+	switch (type.type())
+	{
+	case type.DateTime:
+	{
+		QDateTimeEdit* edit = qobject_cast<QDateTimeEdit*>(ui->tableValues->cellWidget(row, column));
+
+		return QVariant(edit->dateTime().toString(Qt::ISODate));
+		break;
+	}
+	case type.Double:
+	{
+		QDoubleSpinBox* edit = qobject_cast<QDoubleSpinBox*>(ui->tableValues->cellWidget(row, column));
+
+		return QVariant(edit->text());
+		break;
+	}
+	case type.Int:
+	case type.UInt:
+	case type.LongLong:
+	case type.ULongLong:
+	{
+		LongSpinBox* edit = qobject_cast<LongSpinBox*>(ui->tableValues->cellWidget(row, column));
+
+		if (type.type() == type.Int)
+		{
+			return QVariant(edit->text().toInt());
+		}
+		else if (type.type() == type.UInt)
+		{
+			return QVariant(edit->text().toUInt());
+		}
+		else if (type.type() == type.LongLong)
+		{
+			return QVariant(edit->text().toLongLong());
+		}
+		else if (type.type() == type.ULongLong)
+		{
+			return QVariant(edit->text().toULongLong());
+		}
+
+		break;
+	}
+	default:
+		break;
+	}
+
+	return QVariant();
+}
+
 void ConnectionTab::open(int code)
 {
 	if (canConnect())
@@ -484,8 +548,6 @@ void ConnectionTab::editFinished(QString data)
 		int column = QString(data.split(",")[1]).toInt();
 
 		QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
-		QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
-		QVariant type = Query::getVariant(&db, driver, databaseName, tableName, columnName);
 
 		QMap<QString, QVariant>* conditions = new QMap<QString, QVariant>();
 
@@ -493,57 +555,20 @@ void ConnectionTab::editFinished(QString data)
 		{
 			if (i != column)
 			{
-				conditions->insert(ui->tableValues->horizontalHeaderItem(i)->text().split(' ')[0], Query::getVariant(&db, driver, databaseName, tableName, ui->tableValues->horizontalHeaderItem(i)->text().split(' ')[0]));
+				conditions->insert(ui->tableValues->horizontalHeaderItem(i)->text().split(' ')[0], getValue(row, i));
 			}
 		}
 
 		QMap<QString, QVariant>* values = new QMap<QString, QVariant>();
 
-		if (columnType == "enum")
-		{
-			FlatComboBox* edit = qobject_cast<FlatComboBox*>(ui->tableValues->cellWidget(row, column));
-
-			ui->tableValues->item(row, column)->setText(edit->currentText());
-
-			values->insert(columnName, QVariant(edit->currentText()));
-		}
-
-		switch (type.type())
-		{
-		case type.DateTime:
-		{
-			QDateTimeEdit* edit = qobject_cast<QDateTimeEdit*>(ui->tableValues->cellWidget(row, column));
-
-			values->insert(columnName, QVariant(edit->dateTime().toString(Qt::ISODate)));
-			break;
-		}
-		case type.Double:
-		{
-			QDoubleSpinBox* edit = qobject_cast<QDoubleSpinBox*>(ui->tableValues->cellWidget(row, column));
-
-			values->insert(columnName, QVariant(edit->text()));
-			break;
-		}
-		case type.Int:
-		case type.UInt:
-		case type.LongLong:
-		case type.ULongLong:
-		{
-			LongSpinBox* edit = qobject_cast<LongSpinBox*>(ui->tableValues->cellWidget(row, column));
-
-			values->insert(columnName, QVariant(edit->text()));
-			break;
-		}
-		default:
-			break;
-		}
+		values->insert(columnName, getValue(row, column));
 
 		if (values->size() == 0)
 		{
 			values->insert(columnName, QVariant(ui->tableValues->item(row, column)->text()));
 		}
 
-		Query::updateTable(&db, driver, databaseName, tableName, values, conditions);
+		Query::updateRow(&db, driver, databaseName, tableName, values, conditions);
 
 		db.close();
 	}
