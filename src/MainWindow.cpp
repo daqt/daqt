@@ -73,7 +73,18 @@ void MainWindow::openConnection(QModelIndex index)
 {
 	QString name = index.sibling(index.row(), 0).data().toString();
 
+	for (int i = 1; i < ui->tabWidget->count(); i++)
+	{
+		if (ui->tabWidget->widget(i)->property("connectionName") == name)
+		{
+			ui->tabWidget->setCurrentIndex(i);
+
+			return;
+		}
+	}
+
 	ConnectionTab* newTab = new ConnectionTab(ui->tabWidget);
+	newTab->setProperty("connectionName", name);
 
 	connect(newTab, SIGNAL(finished()), this, SLOT(closeCurrentTab()));
 
