@@ -200,7 +200,7 @@ void ConnectionTab::openTable(QModelIndex index)
 			{
 				ui->tableValues->setItem(ui->tableValues->rowCount() - 1, x, new QTableWidgetItem(all[y][x].toString()));
 
-				if (all[y][x].toString().isEmpty())
+				if (all[y][x].toString().isNull())
 				{
 					ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->setText("NULL");
 
@@ -395,6 +395,15 @@ void ConnectionTab::handleType(int row, int column, QVariant type)
 	columnType = columnType.remove(columnType.length() - 1, 1);
 	columnType = columnType.split(" ")[0];
 
+	if (ui->tableValues->item(row, column)->font().italic())
+	{
+		ui->tableValues->item(row, column)->setText("");
+
+		QFont font = QFont(ui->tableValues->item(row, column)->font());
+		font.setItalic(false);
+		ui->tableValues->item(row, column)->setFont(font);
+	}
+
 	if (columnType == "enum")
 	{
 		FlatComboBox* edit = new FlatComboBox(ui->tableValues);
@@ -441,7 +450,7 @@ void ConnectionTab::handleType(int row, int column, QVariant type)
 		edit->setCalendarPopup(true);
 		edit->setCalendarWidget(calendar);
 
-		if (type.toString().isEmpty())
+		if (type.toString().isNull())
 		{
 			edit->setDateTime(QDateTime().currentDateTime());
 		}
@@ -563,8 +572,10 @@ void ConnectionTab::editFinished(QString data)
 
 		values->insert(columnName, getValue(row, column));
 
-		if (values->size() == 0)
+		if (values->values()[0].isNull())
 		{
+			values->clear();
+
 			values->insert(columnName, QVariant(ui->tableValues->item(row, column)->text()));
 		}
 
@@ -598,7 +609,7 @@ void ConnectionTab::goPage(int page)
 				{
 					ui->tableValues->setItem(ui->tableValues->rowCount() - 1, x, new QTableWidgetItem(all[y][x].toString()));
 
-					if (all[y][x].toString().isEmpty())
+					if (all[y][x].isNull())
 					{
 						ui->tableValues->item(ui->tableValues->rowCount() - 1, x)->setText("NULL");
 
