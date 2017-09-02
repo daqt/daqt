@@ -27,6 +27,10 @@ public:
 	QString getError();
 	
 	void finish();
+
+	void reload() { goPage(1); }
+
+	QSqlDatabase getQSqlDatabase() { return db; }
 	
 	~ConnectionTab();
 	
@@ -39,7 +43,7 @@ private:
 	void requestPassword();
 	void handleError();
 
-	QVariant getValue(int row, int column);
+	QVariant getValue(int row, int column, bool set = true);
 	
 signals:
 	void finished();
@@ -54,6 +58,8 @@ public slots:
 	void handleType(int row, int column, QVariant type);
 	void editFinished(QString data);
 	void goPage(int page);
+	void insertRow();
+	void doInsert(QList<QPair<QString, QVariant>>* data);
 };
 
 #endif // DATABASETAB_HPP

@@ -33,7 +33,8 @@ SOURCES += src/Main.cpp\
     src/dialogs/About.cpp \
     src/widgets/LongSpinBox.cpp \
     src/widgets/FlatComboBox.cpp \
-    src/Query.cpp
+    src/Query.cpp \
+    src/dialogs/EditRow.cpp
 
 HEADERS  += src/MainWindow.hpp \
     src/dialogs/NewConnection.hpp \
@@ -44,10 +45,12 @@ HEADERS  += src/MainWindow.hpp \
     src/dialogs/About.hpp \
     src/widgets/LongSpinBox.hpp \
     src/widgets/FlatComboBox.hpp \
-    src/Query.hpp
+    src/Query.hpp \
+    src/dialogs/EditRow.hpp
 
 FORMS    += ui/forms/MainWindow.ui \
     ui/dialogs/NewConnection.ui \
     ui/widgets/ConnectionTab.ui \
     ui/dialogs/Password.ui \
-    ui/dialogs/About.ui
+    ui/dialogs/About.ui \
+    ui/dialogs/EditRow.ui

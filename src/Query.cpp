@@ -183,9 +183,13 @@ QStringList Query::getEnumValues(QSqlDatabase* db, QString driver, QString datab
 		query.next();
 
 		QString val = query.value(0).toString();
-		val = val.remove(val.length() - 1, 1).remove(0, val.indexOf('(') + 1).replace("\'", "");
 
-		result = val.split(',');
+		if (val.startsWith("enum"))
+		{
+			val = val.remove(val.length() - 1, 1).remove(0, val.indexOf('(') + 1).replace("\'", "");
+
+			result = val.split(',');
+		}
 	}
 	//Enums don't exist in SQLite
 	//And I don't understand the PostgreSQL enums...
@@ -381,4 +385,207 @@ int Query::getRows(QSqlDatabase* db, QString driver, QString database, QString t
 	query.exec();
 
 	return query.size();
+}
+
+QString Query::getDefault(QSqlDatabase* db, QString driver, QString database, QString table, QString column)
+{
+	QSqlQuery query(*db);
+	QString defaultVal;
+
+	if (driver == "QMYSQL")
+	{
+		query.prepare("SELECT `COLUMN_DEFAULT` FROM `information_schema`.`COLUMNS` WHERE `COLUMN_NAME`='" + column + "' AND `TABLE_NAME`='" + table + "' AND `TABLE_SCHEMA`='" + database + "';");
+
+		query.exec();
+		query.next();
+
+		defaultVal = query.value(0).toString();
+	}
+	else if (driver == "QSQLITE")
+	{
+		query.prepare("SELECT `sql` FROM `sqlite_master` WHERE `name`='" + table + "' AND `type`='table';");
+		query.exec();
+
+		query.next();
+
+		QString sql = query.value(0).toString();
+		sql = sql.mid(sql.indexOf('(') + 1);
+		sql = sql.remove(sql.length() - 1, 1);
+
+		QStringList parts = sql.split(',');
+
+		for (int p = 0; p < parts.length(); p++)
+		{
+			QString part = parts[p];
+			part = part.trimmed();
+
+			if (part.contains(column) && part.contains("DEFAULT"))
+			{
+				QStringList partParts = part.split(" ");
+
+				defaultVal = partParts[partParts.indexOf("DEFAULT") + 1];
+			}
+		}
+	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		query.prepare("SELECT \"column_default\" FROM \"information_schema\".\"columns\" WHERE \"table_catalog\"='" + database + "' AND \"table_schema\"='" + tableSchema + "' AND \"table_name\"='" + tableName + "' AND \"column_name\"='" + column + "';");
+
+		query.exec();
+		query.next();
+
+		defaultVal = query.value(0).toString();
+	}
+
+	return defaultVal;
+}
+
+bool Query::insertRow(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* values)
+{
+	QSqlQuery query(*db);
+
+	QString sql;
+
+	if (driver == "QMYSQL")
+	{
+		sql += "INSERT INTO `" + database + "`.`" + table + "` (";
+
+		for (int i = 0; i < values->size(); i++)
+		{
+			sql += "`" + values->keys()[i] + "`, ";
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += ") VALUES (";
+
+		for (int i = 0; i < values->size(); i++)
+		{
+			if (!values->values()[i].isNull())
+			{
+				sql += "?, ";
+			}
+			else
+			{
+				sql += "NULL, ";
+			}
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += ");";
+	}
+	else if (driver == "QSQLITE")
+	{
+		sql += "INSERT INTO `" + table + "` (";
+
+		for (int i = 0; i < values->size(); i++)
+		{
+			sql += "`" + values->keys()[i] + "`, ";
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += ") VALUES (";
+
+		for (int i = 0; i < values->size(); i++)
+		{
+			if (!values->values()[i].isNull())
+			{
+				sql += "?, ";
+			}
+			else
+			{
+				sql += "NULL, ";
+			}
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += ");";
+	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		sql += "INSERT INTO \"" + tableSchema + "\".\"" + tableName + "\" (";
+
+		for (int i = 0; i < values->size(); i++)
+		{
+			sql += "\"" + values->keys()[i] + "\", ";
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += ") VALUES (";
+
+		for (int i = 0; i < values->size(); i++)
+		{
+			if (!values->values()[i].isNull())
+			{
+				sql += "?, ";
+			}
+			else
+			{
+				sql += "NULL, ";
+			}
+		}
+
+		sql = sql.remove(sql.length() - 2, 2);
+		sql += ");";
+	}
+
+	query.prepare(sql);
+
+	for (int i = 0; i < values->size(); i++)
+	{
+		query.addBindValue(values->values()[i]);
+	}
+
+	return query.exec();
+}
+
+bool Query::getNullable(QSqlDatabase* db, QString driver, QString database, QString table, QString column)
+{
+	QSqlQuery query(*db);
+
+	if (driver == "QMYSQL")
+	{
+		query.prepare("SELECT `IS_NULLABLE` FROM `information_schema`.`COLUMNS` WHERE `COLUMN_NAME`='" + column + "' AND `TABLE_NAME`='" + table + "' AND `TABLE_SCHEMA`='" + database + "';");
+	}
+	else if (driver == "QSQLITE")
+	{
+		query.prepare("SELECT `sql` FROM `sqlite_master` WHERE `name`='" + table + "' AND `type`='table';");
+		query.exec();
+
+		query.next();
+
+		QString sql = query.value(0).toString();
+		sql = sql.mid(sql.indexOf('(') + 1);
+		sql = sql.remove(sql.length() - 1, 1);
+
+		QStringList parts = sql.split(',');
+
+		for (int p = 0; p < parts.length(); p++)
+		{
+			QString part = parts[p];
+			part = part.trimmed();
+
+			if (part.contains(column))
+			{
+				return !part.contains("NOT NULL");
+			}
+		}
+	}
+	else if (driver == "QPSQL")
+	{
+		QString tableSchema = table.split('.')[0];
+		QString tableName = table.split('.')[1];
+
+		query.prepare("SELECT \"is_nullable\" FROM \"information_schema\".\"columns\" WHERE \"table_catalog\"='" + database + "' AND \"table_schema\"='" + tableSchema + "' AND \"table_name\"='" + tableName + "' AND \"column_name\"='" + column + "';");
+	}
+
+	query.exec();
+	query.next();
+
+	return (query.value(0).toString().toLower() == "yes");
 }

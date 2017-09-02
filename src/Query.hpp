@@ -21,6 +21,9 @@ public:
 	static QVariant getVariant(QSqlDatabase* db, QString driver, QString database, QString table, QString column, int row = -1);
 	static bool updateRow(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* update, QMap<QString, QVariant>* conditions);
 	static int getRows(QSqlDatabase* db, QString driver, QString database, QString table);
+	static QString getDefault(QSqlDatabase* db, QString driver, QString database, QString table, QString column);
+	static bool insertRow(QSqlDatabase* db, QString driver, QString database, QString table, QMap<QString, QVariant>* values);
+	static bool getNullable(QSqlDatabase* db, QString driver, QString database, QString table, QString column);
 };
 
 #endif // QUERY_HPP

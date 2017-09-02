@@ -18,6 +18,7 @@
 #include <QTableWidgetItem>
 #include <QThread>
 
+#include "src/dialogs/EditRow.hpp"
 #include "src/dialogs/Password.hpp"
 #include "src/Query.hpp"
 #include "src/widgets/FlatComboBox.hpp"
@@ -37,6 +38,8 @@ ConnectionTab::ConnectionTab(QWidget* parent) :
 	connect(ui->buttonNext, SIGNAL(pressed()), ui->spinPage, SLOT(stepUp()));
 	connect(ui->buttonPrevious, SIGNAL(pressed()), ui->spinPage, SLOT(stepDown()));
 	connect(ui->spinPage, SIGNAL(valueChanged(int)), this, SLOT(goPage(int)));
+
+	connect(ui->buttonInsert, SIGNAL(pressed()), this, SLOT(insertRow()));
 
 	goPage(0);
 }
@@ -215,6 +218,9 @@ void ConnectionTab::openTable(QModelIndex index)
 			}
 		}
 
+		if (!db.isOpen())
+			db.open();
+
 		connect(mapper, SIGNAL(mapped(QString)), this, SLOT(editFinished(QString)));
 
 		int max = ceil(Query::getRows(&db, driver, databaseName, tableName) / 50);
@@ -287,7 +293,7 @@ void ConnectionTab::handleError()
 	}
 }
 
-QVariant ConnectionTab::getValue(int row, int column)
+QVariant ConnectionTab::getValue(int row, int column, bool set)
 {
 	QString columnName = ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[0];
 	QString columnType = QString(ui->tableValues->horizontalHeaderItem(column)->text().split(' ')[1]).replace("(", "").replace(")", "");
@@ -297,7 +303,10 @@ QVariant ConnectionTab::getValue(int row, int column)
 	{
 		FlatComboBox* edit = qobject_cast<FlatComboBox*>(ui->tableValues->cellWidget(row, column));
 
-		ui->tableValues->item(row, column)->setText(edit->currentText());
+		if (set)
+		{
+			ui->tableValues->item(row, column)->setText(edit->currentText());
+		}
 
 		return QVariant(edit->currentText());
 	}
@@ -598,6 +607,8 @@ void ConnectionTab::goPage(int page)
 
 		if (db.open())
 		{
+			ui->buttonInsert->setEnabled(true);
+
 			QSignalMapper* mapper = new QSignalMapper();
 			QUERYRESULT all = Query::selectAll(&db, driver, databaseName, tableName, page);
 
@@ -631,6 +642,8 @@ void ConnectionTab::goPage(int page)
 	}
 	else
 	{
+		ui->buttonInsert->setEnabled(false);
+
 		ui->spinPage->blockSignals(true);
 
 		ui->spinPage->setMinimum(0);
@@ -658,6 +671,75 @@ void ConnectionTab::goPage(int page)
 	{
 		ui->buttonNext->setEnabled(true);
 	}
+}
+
+void ConnectionTab::insertRow()
+{
+	if (db.open())
+	{
+		EditRow* insert = new EditRow(this);
+
+		connect(insert, SIGNAL(save(QList<QPair<QString, QVariant>>*)), this, SLOT(doInsert(QList<QPair<QString, QVariant>>*)));
+
+		QList<QPair<QString, QPair<QVariant, bool>>>* items = new QList<QPair<QString, QPair<QVariant, bool>>>();
+
+		for (int i = 0; i < ui->tableValues->horizontalHeader()->count(); i++)
+		{
+			QString column = ui->tableValues->horizontalHeaderItem(i)->text().split(' ')[0];
+			QVariant val = Query::getVariant(&db, driver, databaseName, tableName, column);
+			QString defaultVal = Query::getDefault(&db, driver, databaseName, tableName, column);
+			QVariant value;
+
+			if (!(defaultVal.isNull() || defaultVal.isEmpty()))
+			{
+				value = QVariant(val.type()).fromValue(defaultVal);
+
+				if (Query::getEnumValues(&db, driver, databaseName, tableName, column).length() > 0)
+				{
+					QStringList values = Query::getEnumValues(&db, driver, databaseName, tableName, column);
+
+					int defaultIndex = values.indexOf(defaultVal);
+					QString defaultValue = values[defaultIndex];
+
+					values[defaultIndex] = values[0];
+					values[0] = defaultValue + "." + QString::number(defaultIndex);
+
+					value = QVariant(QVariant::StringList).fromValue(values);
+				}
+			}
+			else
+			{
+				value = QVariant(val.type());
+			}
+
+			items->append(QPair<QString, QPair<QVariant, bool>>(column, QPair<QVariant, bool>(value, Query::getNullable(&db, driver, databaseName, tableName, column))));
+		}
+
+		insert->setItems(items, true);
+
+		insert->exec();
+
+		db.close();
+	}
+}
+
+void ConnectionTab::doInsert(QList<QPair<QString, QVariant>>* data)
+{
+	if (db.open())
+	{
+		QMap<QString, QVariant>* values = new QMap<QString, QVariant>();
+
+		for (int i = 0; i < data->length(); i++)
+		{
+			values->insert(data->at(i).first, data->at(i).second);
+		}
+
+		Query::insertRow(&db, driver, databaseName, tableName, values);
+
+		db.close();
+	}
+
+	reload();
 }
 
 ConnectionTab::~ConnectionTab()
